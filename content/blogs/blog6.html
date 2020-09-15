@@ -37,10 +37,7 @@ bike &lt;- bike0 %&gt;%
           month = lubridate::month(day, label = TRUE),
           week = isoweek(day))</code></pre>
 <p>We can easily create a facet grid that plots bikes hired by month and year.</p>
-<p><img src="F:/Learning/London Business School/Courses/Applied Statistics/my_website/images/tfl_distributions_monthly.png" width="100%" style="display: block; margin: auto;" /></p>
-<p><img src="F:/Learning/London Business School/Courses/Applied Statistics/my_website/images/tfl_monthly.png" width="100%" style="display: block; margin: auto;" /></p>
-<p>The second one looks at percentage changes from the expected level of weekly rentals. The two grey shaded rectangles correspond to the second (weeks 14-26) and fourth (weeks 40-52) quarters.</p>
-<p><img src="F:/Learning/London Business School/Courses/Applied Statistics/my_website/images/tfl_weekly.png" width="100%" style="display: block; margin: auto;" /></p>
+<p>We also like to create one which looks at percentage changes from the expected level of weekly rentals. We use two grey shaded rectangles that correspond to the second (weeks 14-26) and fourth (weeks 40-52) quarters.</p>
 <pre class="r"><code>#first we need to filter our database to have only years &gt;= 2015
 bike_filtered &lt;-
 bike %&gt;% filter(year &gt;= 2015)
@@ -129,10 +126,5 @@ geom_tile(aes(fill = week_shade),
   labs(x = &quot;week&quot;, y = &quot;&quot;, title = &quot;Weekly changes in TfL bike rentals&quot;, subtitle = &quot;% change from weekly averages \ncalculated between 2015-2019&quot;, caption = &quot;Source: TfL, London Data Store&quot;)+
  coord_fixed(ratio = 25)
 
-
-#save the picture
-ggsave(&quot;challenge_2.jpg&quot;,plot=p_week,width = 20,height = 10, path = here::here(&quot;images&quot;))
-
-#place the picture in code
-knitr::include_graphics(here::here(&quot;images&quot;, &quot;challenge_2.jpg&quot;))</code></pre>
-<p><img src="F:/Learning/London%20Business%20School/Courses/Applied%20Statistics/my_website/images/challenge_2.jpg" width="3000" style="display: block; margin: auto;" /></p>
+p_week</code></pre>
+<p><img src="/blogs/blog6_files/figure-html/unnamed-chunk-1-1.png" width="648" style="display: block; margin: auto;" /></p>

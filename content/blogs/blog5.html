@@ -123,10 +123,9 @@ hillary_trump_top10 &lt;- hillary +
   theme_update(plot.title = element_text(size = 10, hjust = 0.1),
                aspect.ratio = 9/4,
                plot.caption = element_text(hjust = 0.55, vjust = 0.5))
-# Save the picture in the right proportion.
-ggsave(&quot;hillary_trump_top10.jpg&quot;, plot = hillary_trump_top10, width = 9, height = 4, path = here::here(&quot;images&quot;))
-knitr::include_graphics(here::here(&quot;images&quot;, &quot;hillary_trump_top10.jpg&quot;))</code></pre>
-<p><img src="F:/Learning/London%20Business%20School/Courses/Applied%20Statistics/my_website/images/hillary_trump_top10.jpg" width="1350" style="display: block; margin: auto;" />
+
+  hillary_trump_top10</code></pre>
+<p><img src="/blogs/blog5_files/figure-html/hillary_trump-1.png" width="648" style="display: block; margin: auto;" />
 Finally, we try to make top 10 city plots for top 10 amount raised candidates.</p>
 <pre class="r"><code># Select only the name list of 10 candidates who earned most contriution. 
 top10_candidate &lt;- CA_contributors_2016_cleaned %&gt;% 
@@ -158,10 +157,6 @@ top10_plotS &lt;- CA_contributors_2016_cleaned %&gt;%
                 labs(title = &quot;Top 10 candidates ranked by money raised&quot;,x=NULL,y=NULL)+
                           
                           theme_economist(base_size = 10)
-# save the picture 
-ggsave(&quot;top10plot.jpg&quot;,plot=top10_plotS,width = 20,height = 15, path = here::here(&quot;images&quot;))
-
-# put it here
-knitr::include_graphics(here::here(&quot;images&quot;, &quot;top10plot.jpg&quot;))</code></pre>
-<p><img src="F:/Learning/London%20Business%20School/Courses/Applied%20Statistics/my_website/images/top10plot.jpg" width="3000" style="display: block; margin: auto;" /></p>
+top10_plotS</code></pre>
+<p><img src="/blogs/blog5_files/figure-html/top10_candidates_plots-1.png" width="648" style="display: block; margin: auto;" /></p>
 </div>

@@ -101,12 +101,33 @@ imdb_spielberg_and_burton <- ggplot(selected_directors, aes(x = mean, y = reorde
   labs(subtitle = "95% confidence intervals overlap", x = "Mean IMDB ratings", y = "") +
   theme(aspect.ratio=3/5) 
 
-ggsave("imdb_spielberg_and_burton.jpg",plot=imdb_spielberg_and_burton,width = 10,height = 6, path = here::here("images"))
-
-#displaying the plot
-knitr::include_graphics(here::here("images", "imdb_spielberg_and_burton.jpg"))
+imdb_spielberg_and_burton
 ```
 
+Since there is an overlap in the confidence intervals for both directors, we reject the null hypothesis in favour of the alternate hypothesis i.e. there is a significant difference in the mean ratings of Steven Spielberg and Tim Burton.
 
+We now use the infer() package to simulate from a null distribution where we assume that the means are equal.
+```{r}
+obs_diff_mean <- selected_directors_statistic %>% 
+    specify(rating ~ director) %>% 
+    calculate(stat = "diff in means", order = c("Steven Spielberg", "Tim Burton"))
+obs_diff_mean
+set.seed(1234)
 
+ratings_in_null_world <- selected_directors_statistic %>% 
+  specify(rating ~ director) %>% 
+  hypothesise(null = "independence") %>% 
+  generate(rep = 1000, type = "permute") %>% 
+  calculate(stat = "diff in means", order = c("Steven Spielberg", "Tim Burton"))
 
+visualise(ratings_in_null_world, bins = 10) +
+  shade_p_value(obs_stat = obs_diff_mean, direction = "both") +
+  theme_bw()
+```
+We use p-value to make conclusion.
+```{r}
+p_value <- ratings_in_null_world %>% 
+  get_p_value(obs_stat = obs_diff_mean, direction = "both")
+p_value   
+```
+When we use the infer package to simulate from a null distribution we get a p-value of 0.004 < 0.05, therefore we can conclude that the difference in our sample is not zero and there is significant difference in mean ratings of movies by the two directors.

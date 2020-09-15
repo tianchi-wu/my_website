@@ -88,11 +88,9 @@ glimpse(data_renamed)
 country_list <- c("United States","India", "Germany")
 ```
 
-The plot that we want to reproduce.
+Firstly we want see how does each component of GDP grows over time.
 
-```{r gdp1,  out.width="100%"}
-knitr::include_graphics(here::here("images", "gdp1.png"), error = FALSE)
-```
+
 ```{r, produce_the_plot, out.width="100%"}
 
 components <- c("Gross capital formation", "Exports of goods and services", 	
@@ -149,11 +147,8 @@ gdp_difference <- ggplot(data = three_GDP_3, aes(x = Year, y = GDP_difference_pe
 ```
 
 
-We want to reproduce this plot to see changes of proportion of each component of GDP.
-```{r gdp2, out.width="100%"}
-knitr::include_graphics(here::here("images", "gdp2.png"), error = FALSE)
+We want to produce another plot to see changes of proportion of each component of GDP.
 
-```
 
 ```{r gdp_breakdown, out.width="100%"}
 
@@ -179,11 +174,7 @@ gdp2 <- ggplot(data = three_GDP_5, aes(x = Year, y = Proportion, group = Compone
   theme_bw()+
   coord_equal(ratio = 80)
 
-#save the picture
-ggsave("gdp2.jpg",plot=gdp2,width = 20,height = 10, path = here::here("images"))
-
-#place the picture in code
-knitr::include_graphics(here::here("images", "gdp2.jpg"))
+gdp2
 ```
 
 #My conclusion

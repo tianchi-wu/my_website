@@ -130,9 +130,7 @@ glimpse(data_renamed)</code></pre>
 ## $ GDP       &lt;dbl&gt; 10.72, 10.69, 8.94, 9.20, 9.70, 10.30, 10.86, 10.32, 11.0...</code></pre>
 <pre class="r"><code># Let us compare GDP components for these 3 countries
 country_list &lt;- c(&quot;United States&quot;,&quot;India&quot;, &quot;Germany&quot;)</code></pre>
-<p>The plot that we want to reproduce.</p>
-<pre class="r"><code>knitr::include_graphics(here::here(&quot;images&quot;, &quot;gdp1.png&quot;), error = FALSE)</code></pre>
-<p><img src="F:/Learning/London%20Business%20School/Courses/Applied%20Statistics/my_website/images/gdp1.png" width="100%" style="display: block; margin: auto;" /></p>
+<p>Firstly we want see how does each component of GDP grows over time.</p>
 <pre class="r"><code>components &lt;- c(&quot;Gross capital formation&quot;, &quot;Exports of goods and services&quot;,     
 &quot;General government final consumption expenditure&quot;, &quot;Household consumption expenditure (including Non-profit institutions serving households)&quot;, &quot;Imports of goods and services&quot;)
 
@@ -179,9 +177,7 @@ gdp_difference &lt;- ggplot(data = three_GDP_3, aes(x = Year, y = GDP_difference
   scale_y_continuous(labels = scales::percent_format(accuracy = 1),limits = c(-0.08,0.07))+
   theme_bw()+
   labs(y = &quot;&quot;, title = &quot;Difference between GDP and calculated GDP&quot;)</code></pre>
-<p>We want to reproduce this plot to see changes of proportion of each component of GDP.</p>
-<pre class="r"><code>knitr::include_graphics(here::here(&quot;images&quot;, &quot;gdp2.png&quot;), error = FALSE)</code></pre>
-<p><img src="F:/Learning/London%20Business%20School/Courses/Applied%20Statistics/my_website/images/gdp2.png" width="100%" style="display: block; margin: auto;" /></p>
+<p>We want to produce another plot to see changes of proportion of each component of GDP.</p>
 <pre class="r"><code>components4 &lt;- c(&quot;Government Expenditure&quot;, &quot;Gross capital formation&quot;, &quot;Household Expenditure&quot;, &quot;Net Exports&quot;)
 three_GDP_4 &lt;- three_GDP_3 %&gt;% 
   mutate(&quot;GGFCE_per&quot; = (GGFCE) / GDP) %&gt;% 
@@ -204,12 +200,8 @@ gdp2 &lt;- ggplot(data = three_GDP_5, aes(x = Year, y = Proportion, group = Comp
   theme_bw()+
   coord_equal(ratio = 80)
 
-#save the picture
-ggsave(&quot;gdp2.jpg&quot;,plot=gdp2,width = 20,height = 10, path = here::here(&quot;images&quot;))
-
-#place the picture in code
-knitr::include_graphics(here::here(&quot;images&quot;, &quot;gdp2.jpg&quot;))</code></pre>
-<p><img src="F:/Learning/London%20Business%20School/Courses/Applied%20Statistics/my_website/images/gdp2.jpg" width="100%" style="display: block; margin: auto;" /></p>
+gdp2</code></pre>
+<p><img src="/blogs/blog7_files/figure-html/gdp_breakdown-1.png" width="100%" style="display: block; margin: auto;" /></p>
 <p>#My conclusion
 Emerging countries like India is going through an increase in gross capital formation since lots of infrastructure and real estates have been invested, as well as a decrease in household expenditure because India takes lower priority of household expenditure in boosting economy.</p>
 <p>Developped countries have a relatively stable trend in those four components, except countries that have solid industrial foundation like Germany is going through an slight increase in net exports.</p>

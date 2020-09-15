@@ -155,11 +155,39 @@ imdb_spielberg_and_burton &lt;- ggplot(selected_directors, aes(x = mean, y = reo
   labs(subtitle = &quot;95% confidence intervals overlap&quot;, x = &quot;Mean IMDB ratings&quot;, y = &quot;&quot;) +
   theme(aspect.ratio=3/5) 
 
-ggsave(&quot;imdb_spielberg_and_burton.jpg&quot;,plot=imdb_spielberg_and_burton,width = 10,height = 6, path = here::here(&quot;images&quot;))
+imdb_spielberg_and_burton</code></pre>
+<p><img src="/blogs/blog8_files/figure-html/gdp1-1.png" width="100%" style="display: block; margin: auto;" /></p>
+<p>Since there is an overlap in the confidence intervals for both directors, we reject the null hypothesis in favour of the alternate hypothesis i.e. there is a significant difference in the mean ratings of Steven Spielberg and Tim Burton.</p>
+<p>We now use the infer() package to simulate from a null distribution where we assume that the means are equal.</p>
+<pre class="r"><code>obs_diff_mean &lt;- selected_directors_statistic %&gt;% 
+    specify(rating ~ director) %&gt;% 
+    calculate(stat = &quot;diff in means&quot;, order = c(&quot;Steven Spielberg&quot;, &quot;Tim Burton&quot;))
+obs_diff_mean</code></pre>
+<pre><code>## # A tibble: 1 x 1
+##    stat
+##   &lt;dbl&gt;
+## 1 0.643</code></pre>
+<pre class="r"><code>set.seed(1234)
 
-#displaying the plot
-knitr::include_graphics(here::here(&quot;images&quot;, &quot;imdb_spielberg_and_burton.jpg&quot;))</code></pre>
-<p><img src="F:/Learning/London%20Business%20School/Courses/Applied%20Statistics/my_website/images/imdb_spielberg_and_burton.jpg" width="100%" style="display: block; margin: auto;" /></p>
+ratings_in_null_world &lt;- selected_directors_statistic %&gt;% 
+  specify(rating ~ director) %&gt;% 
+  hypothesise(null = &quot;independence&quot;) %&gt;% 
+  generate(rep = 1000, type = &quot;permute&quot;) %&gt;% 
+  calculate(stat = &quot;diff in means&quot;, order = c(&quot;Steven Spielberg&quot;, &quot;Tim Burton&quot;))
+
+visualise(ratings_in_null_world, bins = 10) +
+  shade_p_value(obs_stat = obs_diff_mean, direction = &quot;both&quot;) +
+  theme_bw()</code></pre>
+<p><img src="/blogs/blog8_files/figure-html/unnamed-chunk-2-1.png" width="648" style="display: block; margin: auto;" />
+We use p-value to make conclusion.</p>
+<pre class="r"><code>p_value &lt;- ratings_in_null_world %&gt;% 
+  get_p_value(obs_stat = obs_diff_mean, direction = &quot;both&quot;)
+p_value   </code></pre>
+<pre><code>## # A tibble: 1 x 1
+##   p_value
+##     &lt;dbl&gt;
+## 1   0.004</code></pre>
+<p>When we use the infer package to simulate from a null distribution we get a p-value of 0.004 &lt; 0.05, therefore we can conclude that the difference in our sample is not zero and there is significant difference in mean ratings of movies by the two directors.</p>
 
                         </div>
                     </section>

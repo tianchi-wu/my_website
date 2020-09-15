@@ -68,19 +68,9 @@ bike <- bike0 %>%
 
 We can easily create a facet grid that plots bikes hired by month and year.
 
-```{r tfl_month_year_grid, echo=FALSE, out.width="100%"}
-knitr::include_graphics(here::here("images", "tfl_distributions_monthly.png"), error = FALSE)
-```
+We also like to create one which looks at percentage changes from the expected level of weekly rentals. We use two grey shaded rectangles that correspond to the second (weeks 14-26) and fourth (weeks 40-52) quarters.
 
-```{r tfl_absolute_monthly_change, echo=FALSE, out.width="100%"}
-knitr::include_graphics(here::here("images", "tfl_monthly.png"), error = FALSE)
-```
 
-The second one looks at percentage changes from the expected level of weekly rentals. The two grey shaded rectangles correspond to the second (weeks 14-26) and fourth (weeks 40-52) quarters.
-
-```{r tfl_percent_change, echo=FALSE, out.width="100%"}
-knitr::include_graphics(here::here("images", "tfl_weekly.png"), error = FALSE)
-```
 
 
 ```{r tfl_absolute_monthly_change_code}
@@ -183,12 +173,8 @@ geom_tile(aes(fill = week_shade),
   labs(x = "week", y = "", title = "Weekly changes in TfL bike rentals", subtitle = "% change from weekly averages \ncalculated between 2015-2019", caption = "Source: TfL, London Data Store")+
  coord_fixed(ratio = 25)
 
+p_week
 
-#save the picture
-ggsave("challenge_2.jpg",plot=p_week,width = 20,height = 10, path = here::here("images"))
-
-#place the picture in code
-knitr::include_graphics(here::here("images", "challenge_2.jpg"))
 
 ```
 

@@ -115,9 +115,8 @@ hillary_trump_top10 <- hillary +
   theme_update(plot.title = element_text(size = 10, hjust = 0.1),
                aspect.ratio = 9/4,
                plot.caption = element_text(hjust = 0.55, vjust = 0.5))
-# Save the picture in the right proportion.
-ggsave("hillary_trump_top10.jpg", plot = hillary_trump_top10, width = 9, height = 4, path = here::here("images"))
-knitr::include_graphics(here::here("images", "hillary_trump_top10.jpg"))
+
+  hillary_trump_top10
 
 ```  
 Finally, we try to make top 10 city plots for top 10 amount raised candidates.
@@ -148,10 +147,6 @@ top10_plotS <- CA_contributors_2016_cleaned %>%
                 labs(title = "Top 10 candidates ranked by money raised",x=NULL,y=NULL)+
                           
                           theme_economist(base_size = 10)
-# save the picture 
-ggsave("top10plot.jpg",plot=top10_plotS,width = 20,height = 15, path = here::here("images"))
-
-# put it here
-knitr::include_graphics(here::here("images", "top10plot.jpg"))
+top10_plotS
 
 ```  
