@@ -55,13 +55,43 @@ summary(cars)## speed dist ## Min. : 4.0 Min. : 2.00 ## 1st Qu.:12.0 1st Qu.: 2
     </item>
     
     <item>
+      <title>1970 - 2019 GDP and Its breakdown</title>
+      <link>/blogs/blog7/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>/blogs/blog7/</guid>
+      <description>library(tidyverse) # Load ggplot2, dplyr, and all the other tidyverse packageslibrary(mosaic)library(ggthemes)library(GGally)library(readxl)library(here)library(skimr)library(janitor)library(broom)library(tidyquant)library(infer)library(openintro)GDP components over time and among countriesFirstly we used United Nation’s database to load our data.
+UN_GDP_data &amp;lt;- read_excel(here::here(&amp;quot;data&amp;quot;, &amp;quot;Download-GDPconstant-USD-countries.xls&amp;quot;), # Excel filenamesheet=&amp;quot;Download-GDPconstant-USD-countr&amp;quot;, # Sheet nameskip=2) # Number of rows to skipThen we tidy the data to pivot longer and also save lists for filter later.</description>
+    </item>
+    
+    <item>
+      <title>2015 - 2020 TfL Bike Rentals Weekly Change</title>
+      <link>/blogs/blog6/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>/blogs/blog6/</guid>
+      <description>Recall the TfL data on how many bikes were hired every single day. We can get the latest data by running the following
+url &amp;lt;- &amp;quot;https://data.london.gov.uk/download/number-bicycle-hires/ac29363e-e0cb-47cc-a97a-e216d900a6b0/tfl-daily-cycle-hires.xlsx&amp;quot;# Download TFL data to temporary filehttr::GET(url, write_disk(bike.temp &amp;lt;- tempfile(fileext = &amp;quot;.xlsx&amp;quot;)))## Response [https://airdrive-secure.s3-eu-west-1.amazonaws.com/london/dataset/number-bicycle-hires/2020-08-26T09%3A19%3A21/tfl-daily-cycle-hires.xlsx?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;amp;X-Amz-Credential=AKIAJJDIMAIVZJDICKHA%2F20200915%2Feu-west-1%2Fs3%2Faws4_request&amp;amp;X-Amz-Date=20200915T152216Z&amp;amp;X-Amz-Expires=300&amp;amp;X-Amz-Signature=abc7c604e56caa9e8857fac3fc1cdbc5351dff4fed0526a9fa69c1bef79eb02b&amp;amp;X-Amz-SignedHeaders=host]## Date: 2020-09-15 15:22## Status: 200## Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet## Size: 164 kB## &amp;lt;ON DISK&amp;gt; C:\Users\WUTIAN~1\AppData\Local\Temp\RtmpQ1sjCP\file52a02fc4d58.xlsx# Use read_excel to read it as dataframebike0 &amp;lt;- read_excel(bike.</description>
+    </item>
+    
+    <item>
       <title>2016 CA Contributors Plots</title>
       <link>/blogs/blog5/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
       
       <guid>/blogs/blog5/</guid>
-      <description>knitr::opts_chunk$set(message = FALSE, warning = FALSE, tidy=FALSE, # display code as typedsize=&amp;quot;small&amp;quot;) # slightly smaller font for codeoptions(digits = 3)# default figure sizeknitr::opts_chunk$set(fig.width=6.75, fig.height=6.75,fig.align = &amp;quot;center&amp;quot;)Challenge 2: 2016 California Contributors plotsFirstly, we import patchwork, use vroom() to load data and join two datasets.
+      <description>knitr::opts_chunk$set(message = FALSE, warning = FALSE, tidy=FALSE, # display code as typedsize=&amp;quot;small&amp;quot;) # slightly smaller font for codeoptions(digits = 3)# default figure sizeknitr::opts_chunk$set(fig.width=6.75, fig.height=6.75,fig.align = &amp;quot;center&amp;quot;)2016 California Contributors plotsFirstly, we import patchwork, use vroom() to load data and join two datasets.
 library(patchwork)# Load data.CA_contributors_2016 &amp;lt;- vroom::vroom(here::here(&amp;quot;data&amp;quot;,&amp;quot;CA_contributors_2016.csv&amp;quot;))zip_code &amp;lt;-vroom::vroom(here::here(&amp;quot;data&amp;quot;,&amp;quot;zip_code_database.csv&amp;quot;))# Change zip_code to the same data type so we could join.</description>
+    </item>
+    
+    <item>
+      <title>IMDB Ratings Differences between Directors</title>
+      <link>/blogs/blog8/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>/blogs/blog8/</guid>
+      <description>library(tidyverse) # Load ggplot2, dplyr, and all the other tidyverse packageslibrary(mosaic)library(ggthemes)library(GGally)library(readxl)library(here)library(skimr)library(janitor)library(broom)library(tidyquant)library(infer)library(openintro)Lets look at the average ratings for Steven Spielberg and Tim Burton and analyse whether they are significantly different from each other.
+movies &amp;lt;- read_csv(here::here(&amp;quot;data&amp;quot;, &amp;quot;movies.csv&amp;quot;))glimpse(movies)## Rows: 2,961## Columns: 11## $ title &amp;lt;chr&amp;gt; &amp;quot;Avatar&amp;quot;, &amp;quot;Titanic&amp;quot;, &amp;quot;Jurassic World&amp;quot;, &amp;quot;The Ave...## $ genre &amp;lt;chr&amp;gt; &amp;quot;Action&amp;quot;, &amp;quot;Drama&amp;quot;, &amp;quot;Action&amp;quot;, &amp;quot;Action&amp;quot;, &amp;quot;Action&amp;quot;.</description>
     </item>
     
   </channel>

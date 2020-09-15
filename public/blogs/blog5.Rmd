@@ -41,9 +41,9 @@ library(janitor)
 library(vroom)
 library(tidyquant)
 ```
-# Challenge 2: 2016 California Contributors plots
+# 2016 California Contributors plots
 ```{r challenge2, echo=FALSE, out.width="100%"}
-#Original graphics 
+#We want to reproduce a picture like this
 knitr::include_graphics(here::here("images", "challenge2.png"), error = FALSE)
 ```
 
