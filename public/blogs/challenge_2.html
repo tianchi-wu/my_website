@@ -1,0 +1,160 @@
+
+
+<div id="challenge-2-excess-rentals-in-tfl-bike-sharing" class="section level1">
+<h1>Challenge 2: Excess rentals in TfL bike sharing</h1>
+<p>Recall the TfL data on how many bikes were hired every single day. We can get the latest data by running the following</p>
+<pre class="r"><code>url &lt;- &quot;https://data.london.gov.uk/download/number-bicycle-hires/ac29363e-e0cb-47cc-a97a-e216d900a6b0/tfl-daily-cycle-hires.xlsx&quot;
+
+# Download TFL data to temporary file
+httr::GET(url, write_disk(bike.temp &lt;- tempfile(fileext = &quot;.xlsx&quot;)))</code></pre>
+<pre><code>## Response [https://airdrive-secure.s3-eu-west-1.amazonaws.com/london/dataset/number-bicycle-hires/2020-08-26T09%3A19%3A21/tfl-daily-cycle-hires.xlsx?X-Amz-Algorithm=AWS4-HMAC-SHA256&amp;X-Amz-Credential=AKIAJJDIMAIVZJDICKHA%2F20200915%2Feu-west-1%2Fs3%2Faws4_request&amp;X-Amz-Date=20200915T152216Z&amp;X-Amz-Expires=300&amp;X-Amz-Signature=abc7c604e56caa9e8857fac3fc1cdbc5351dff4fed0526a9fa69c1bef79eb02b&amp;X-Amz-SignedHeaders=host]
+##   Date: 2020-09-15 15:22
+##   Status: 200
+##   Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+##   Size: 164 kB
+## &lt;ON DISK&gt;  C:\Users\WUTIAN~1\AppData\Local\Temp\RtmpWYTkl8\file54a01bd3e24.xlsx</code></pre>
+<pre class="r"><code># Use read_excel to read it as dataframe
+bike0 &lt;- read_excel(bike.temp,
+                   sheet = &quot;Data&quot;,
+                   range = cell_cols(&quot;A:B&quot;))
+
+# change dates to get year, month, and week
+bike &lt;- bike0 %&gt;% 
+  clean_names() %&gt;% 
+  rename (bikes_hired = number_of_bicycle_hires) %&gt;% 
+  mutate (year = year(day),
+          month = lubridate::month(day, label = TRUE),
+          week = isoweek(day))</code></pre>
+<p>We can easily create a facet grid that plots bikes hired by month and year.</p>
+<p><img src="F:/Learning/London Business School/Courses/Applied Statistics/my_website/images/tfl_distributions_monthly.png" width="100%" style="display: block; margin: auto;" /></p>
+<p>Look at May and Jun and compare 2020 with the previous years. What’s happening?</p>
+<p>However, the challenge I want you to work on is to reproduce the following two graphs.</p>
+<p><img src="F:/Learning/London Business School/Courses/Applied Statistics/my_website/images/tfl_monthly.png" width="100%" style="display: block; margin: auto;" /></p>
+<p>The second one looks at percentage changes from the expected level of weekly rentals. The two grey shaded rectangles correspond to the second (weeks 14-26) and fourth (weeks 40-52) quarters.</p>
+<p><img src="F:/Learning/London Business School/Courses/Applied Statistics/my_website/images/tfl_weekly.png" width="100%" style="display: block; margin: auto;" /></p>
+<p>For both of these graphs, you have to calculate the expected number of rentals per week or month between 2015-2019 and then, see how each week/month of 2020 compares to the expected rentals. Think of the calculation <code>excess_rentals = actual_rentals - expected_rentals</code>.</p>
+<p>Should you use the mean or the median to calculate your expected rentals? Why?</p>
+<p>In creating your plots, you may find these links useful:</p>
+<ul>
+<li><a href="https://ggplot2.tidyverse.org/reference/geom_ribbon.html" class="uri">https://ggplot2.tidyverse.org/reference/geom_ribbon.html</a></li>
+<li><a href="https://ggplot2.tidyverse.org/reference/geom_tile.html" class="uri">https://ggplot2.tidyverse.org/reference/geom_tile.html</a></li>
+<li><a href="https://ggplot2.tidyverse.org/reference/geom_rug.html" class="uri">https://ggplot2.tidyverse.org/reference/geom_rug.html</a></li>
+</ul>
+<pre class="r"><code>#first we need to filter our database to have only years &gt;= 2015
+bike_filtered &lt;-
+bike %&gt;% filter(year &gt;= 2015)
+
+#summarizing per month - we don&#39;t need the week value, only monthly
+bike_filtered &lt;-
+bike_filtered %&gt;%
+group_by(year,month) %&gt;%
+summarize(bikes_hired = mean(bikes_hired))
+
+#now we will calculate the monthly average throughout the years and save it in a new column
+bike_filtered &lt;-
+bike_filtered %&gt;%
+group_by(month) %&gt;%
+mutate(average_hire = mean(bikes_hired)) %&gt;%
+ungroup()
+
+#calculate the change from monthly average
+bike_filtered &lt;-
+bike_filtered %&gt;%
+mutate(change_monthlyavg = bikes_hired - average_hire)
+
+#create basic line graph of average hire (blue) and bikes hired per month (grey) faceted by year
+p &lt;- ggplot(data = bike_filtered, aes(x = month)) +
+geom_line(aes(y = average_hire, group = 1), color = &quot;blue&quot;) +
+geom_line(aes(y = bikes_hired, group = 1), color = &quot;grey&quot;) +
+facet_wrap(~year) +
+#adding shadded area between both lines
+geom_ribbon(aes(ymin = bike_filtered$average_hire , ymax = bike_filtered$bikes_hired), alpha = .5, group =1)
+
+p</code></pre>
+<p><img src="challenge_2_files/figure-html/tfl_absolute_monthly_change_code-1.png" width="648" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>##first we need to filter our database to have only years &gt;= 2015
+bike_filtered &lt;-
+bike %&gt;% filter(year &gt;= 2015)
+
+#summarizing per week
+bike_filtered &lt;-
+bike_filtered %&gt;%
+group_by(year,week) %&gt;%
+summarize(bikes_hired = mean(bikes_hired))
+
+#now we will calculate the weekly average throughout the years and save it in a new column
+bike_filtered &lt;-
+bike_filtered %&gt;%
+group_by(week) %&gt;%
+mutate(weekly_average = mean(bikes_hired)) %&gt;%
+ungroup()
+
+#calculate the change from weekly average
+bike_filtered&lt;-
+bike_filtered %&gt;%
+mutate(weekly_change_per = (bikes_hired - weekly_average)/weekly_average)%&gt;%
+ 
+#make a new column &quot;tag&quot; to colorize shapes depending on whether change is above or below expected level
+  mutate(tags = ifelse(weekly_change_per&gt;=0, &quot;Above&quot;, &quot;Below&quot;)) %&gt;% 
+
+#make a new column &quot;week_shade&quot; to colorize the background.
+  mutate(week_shade = if_else(week &lt;=13|week&gt;=26&amp;week&lt;=39,&quot;white&quot;,&quot;grey&quot;))</code></pre>
+<pre class="r"><code>p_week &lt;- ggplot(data = bike_filtered, aes(x = week, y = weekly_change_per)) +  
+geom_line()+
+  
+#separately colorize shapes to perfectly match the line
+geom_ribbon(aes(ymin = 0, ymax = pmin(0,weekly_change_per), fill = &quot;Above&quot;), alpha=.5) + 
+geom_ribbon(aes(ymin = weekly_change_per, ymax = pmin(0,weekly_change_per), fill = &quot;Below&quot;), alpha=.5)+
+facet_wrap(~year)+
+  
+#not working.we don&#39;t know how to change the format of facet titles.
+theme(strip.background = element_rect(color=&quot;black&quot;, fill=&quot;blue&quot;))+
+  
+#colorize the background 
+geom_tile(aes(fill = week_shade),
+            width = 1, height = Inf, alpha = 0.3)+ 
+  
+#colorize all the parameters we need 
+  scale_fill_manual(values = c(&quot;red&quot;,&quot;green&quot;,&quot;grey&quot;,&quot;white&quot;))+
+  
+#add the rugs to match the weekly change 
+  geom_rug(aes(color = tags),sides=&quot;b&quot;,alpha = .5) +
+  theme_bw()+
+  scale_x_continuous(breaks=seq(13, 53, 13))+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1),limits = c(-0.6,0.6)) + 
+  theme(axis.ticks = element_blank())+
+  theme(legend.position = &quot;none&quot;) + 
+  theme(panel.border = element_blank())+
+  labs(x = &quot;week&quot;, y = &quot;&quot;, title = &quot;Weekly changes in TfL bike rentals&quot;, subtitle = &quot;% change from weekly averages \ncalculated between 2015-2019&quot;, caption = &quot;Source: TfL, London Data Store&quot;)+
+ coord_fixed(ratio = 25)
+
+
+#save the picture
+ggsave(&quot;challenge_2.jpg&quot;,plot=p_week,width = 20,height = 10, path = here::here(&quot;images&quot;))
+
+#place the picture in code
+knitr::include_graphics(here::here(&quot;images&quot;, &quot;challenge_2.jpg&quot;))</code></pre>
+<p><img src="F:/Learning/London%20Business%20School/Courses/Applied%20Statistics/my_website/images/challenge_2.jpg" width="3000" style="display: block; margin: auto;" /></p>
+</div>
+<div id="deliverables" class="section level1">
+<h1>Deliverables</h1>
+<p>As usual, there is a lot of explanatory text, comments, etc. You do not need these, so delete them and produce a stand-alone document that you could share with someone. Knit the edited and completed R Markdown file as an HTML document (use the “Knit” button at the top of the script editor window) and upload it to Canvas.</p>
+</div>
+<div id="details" class="section level1">
+<h1>Details</h1>
+<ul>
+<li>Who did you collaborate with: TYPE NAMES HERE</li>
+<li>Approximately how much time did you spend on this problem set: ANSWER HERE</li>
+<li>What, if anything, gave you the most trouble: ANSWER HERE</li>
+</ul>
+<p><strong>Please seek out help when you need it,</strong> and remember the <a href="https://mam2021.netlify.app/syllabus/#the-15-minute-rule" target="_blank">15-minute rule</a>. You know enough R (and have enough examples of code from class and your readings) to be able to do this. If you get stuck, ask for help from others, post a question on Slack– and remember that I am here to help too!</p>
+<blockquote>
+<p>As a true test to yourself, do you understand the code you submitted and are you able to explain it to someone else?</p>
+</blockquote>
+</div>
+<div id="rubric" class="section level1">
+<h1>Rubric</h1>
+<p>Check minus (1/5): Displays minimal effort. Doesn’t complete all components. Code is poorly written and not documented. Uses the same type of plot for each graph, or doesn’t use plots appropriate for the variables being analyzed.</p>
+<p>Check (3/5): Solid effort. Hits all the elements. No clear mistakes. Easy to follow (both the code and the output).</p>
+<p>Check plus (5/5): Finished all components of the assignment correctly and addressed both challenges. Code is well-documented (both self-documented and with additional comments as necessary). Used tidyverse, instead of base R. Graphs and tables are properly labelled. Analysis is clear and easy to follow, either because graphs are labeled clearly or you’ve written additional text to describe how you interpret the output.</p>
+</div>

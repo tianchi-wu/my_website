@@ -1,0 +1,199 @@
+---
+categories:
+- ""
+- ""
+date: "2020-9-15"
+description: How much have the main components of GDP for three countries changed in the past thirty years?
+draft: false
+image: blog07.png
+keywords: ""
+slug: blog7
+title: 1970 - 2019 GDP and Its breakdown 
+---
+
+
+```{r, setup, echo=FALSE}
+knitr::opts_chunk$set(
+  message = FALSE, 
+  warning = FALSE, 
+  tidy=FALSE,     # display code as typed
+  size="small")   # slightly smaller font for code
+options(digits = 3)
+
+# default figure size
+knitr::opts_chunk$set(
+  fig.width=6.75, 
+  fig.height=6.75,
+  fig.align = "center"
+)
+```
+
+
+```{r load-libraries}
+library(tidyverse)  # Load ggplot2, dplyr, and all the other tidyverse packages
+library(mosaic)
+library(ggthemes)
+library(GGally)
+library(readxl)
+library(here)
+library(skimr)
+library(janitor)
+library(broom)
+library(tidyquant)
+library(infer)
+library(openintro)
+```
+
+
+
+# GDP components over time and among countries
+
+Firstly we used United Nation's database to load our data.
+
+
+```{r read_GDP_data}
+
+UN_GDP_data  <-  read_excel(here::here("data", "Download-GDPconstant-USD-countries.xls"), # Excel filename
+                sheet="Download-GDPconstant-USD-countr", # Sheet name
+                skip=2) # Number of rows to skip
+
+```
+
+Then we tidy the data to pivot longer and also save lists for filter later.
+
+```{r reshape_GDP_data}
+
+#save lists for filter later 
+components <- c("Gross capital formation", "Exports of goods and services", 	
+"General government final consumption expenditure", "Household consumption expenditure (including Non-profit institutions serving households)", "Imports of goods and services","Gross Domestic Product (GDP)")
+
+#clean data
+tidy_GDP_data  <-  UN_GDP_data %>% 
+  pivot_longer(cols = (4:51), names_to = "Year", values_to = "Sum") %>% 
+  mutate("Sum" = Sum/1e9) %>% 
+  mutate(Year = as.numeric(Year))
+
+data_renamed<- tidy_GDP_data%>%
+ filter(IndicatorName %in% components) %>%   
+pivot_wider(names_from = IndicatorName,values_from = Sum)
+  
+
+names(data_renamed)[4:9] <- c("HCE","GGFCE","GCF","EGS","IGS","GDP") 
+
+
+glimpse(data_renamed)
+
+
+# Let us compare GDP components for these 3 countries
+country_list <- c("United States","India", "Germany")
+```
+
+The plot that we want to reproduce.
+
+```{r gdp1,  out.width="100%"}
+knitr::include_graphics(here::here("images", "gdp1.png"), error = FALSE)
+```
+```{r, produce_the_plot, out.width="100%"}
+
+components <- c("Gross capital formation", "Exports of goods and services", 	
+"General government final consumption expenditure", "Household consumption expenditure (including Non-profit institutions serving households)", "Imports of goods and services")
+
+components2 <- c("Gross capital formation", "Exports", 	
+"Government expenditure", "Household expenditure", "Imports")
+
+three_GDP <- tidy_GDP_data %>% 
+  filter(Country %in% country_list) %>%
+  filter(IndicatorName %in% components) 
+
+
+gdp1 <- ggplot(data = three_GDP, aes(x = Year, y = Sum, group = IndicatorName, color = IndicatorName)) +
+  geom_line(size = 0.8)+
+  facet_wrap(~Country)+
+  scale_color_manual( values=c("#F8766D", "#A3A500", "#2FCB95", "#00B0F6", "#E76BF3"),
+                      name="Components of GDP",
+                       labels= components2)+
+  labs(x = "", y = "Billion US$", title = "GDP components over time", subtitle = "In constant 2010 USD")+
+  theme(legend.position = "right")+
+  theme_bw()+
+  coord_equal(ratio = 0.008)
+
+gdp1
+```
+Secondly, 
+recall that GDP is the sum of Household Expenditure (Consumption *C*), Gross Capital Formation (business investment *I*), Government Expenditure (G) and Net Exports (exports - imports). We'll calculate GDP using the components given above.
+
+```{r, calculate_gdp,out.width="100%"}
+
+components3 <- c("Gross capital formation", "Exports of goods and services", 	
+"General government final consumption expenditure", "Household consumption expenditure (including Non-profit institutions serving households)", "Imports of goods and services", "Gross Domestic Product (GDP)")
+
+three_GDP <- data_renamed %>% 
+  filter(Country %in% country_list)
+
+three_GDP_1<- three_GDP %>% 
+  mutate("Net_export" = EGS - IGS ) 
+
+three_GDP_2 <- three_GDP_1 %>% 
+  mutate("GDP_calculated" = HCE + GGFCE + GCF + Net_export)
+three_GDP_3 <- three_GDP_2 %>% 
+  mutate("GDP_difference_per" = (GDP - GDP_calculated) / GDP)
+
+gdp_difference <- ggplot(data = three_GDP_3, aes(x = Year, y = GDP_difference_per)) + 
+  geom_line(color = "#00B0F6", size = 0.8)+
+  facet_wrap(~Country)+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1),limits = c(-0.08,0.07))+
+  theme_bw()+
+  labs(y = "", title = "Difference between GDP and calculated GDP")
+
+
+```
+
+
+We want to reproduce this plot to see changes of proportion of each component of GDP.
+```{r gdp2, out.width="100%"}
+knitr::include_graphics(here::here("images", "gdp2.png"), error = FALSE)
+
+```
+
+```{r gdp_breakdown, out.width="100%"}
+
+components4 <- c("Government Expenditure", "Gross capital formation", "Household Expenditure", "Net Exports")
+three_GDP_4 <- three_GDP_3 %>% 
+  mutate("GGFCE_per" = (GGFCE) / GDP) %>% 
+  mutate("GCF_per" = (GCF) / GDP) %>% 
+  mutate("HCE_per" = (HCE) / GDP) %>% 
+  mutate("Net_export_per" = (Net_export) / GDP) %>% 
+  select(Country, Year, GGFCE_per,GCF_per,HCE_per,Net_export_per)
+
+three_GDP_5 <- three_GDP_4 %>% 
+  pivot_longer(cols = (3:6), names_to = "Components", values_to = "Proportion" ) 
+
+gdp2 <- ggplot(data = three_GDP_5, aes(x = Year, y = Proportion, group = Components, color = Components)) +
+  geom_line(size = 1)+
+  facet_wrap(~Country)+
+  scale_color_manual( values=c("#F8766D", "#A3A500", "#2FCB95", "#E76BF3"),
+                      name="",
+                       labels= components4)+
+  labs(x = "", y = "proportion", title = "GDP and its breakdown at constant 2010 prices in US Dollars", caption = "Source: United Nations, https://unstats.un.org/unsd/snaama/Downloads")+
+  theme(legend.position = "right")+
+  theme_bw()+
+  coord_equal(ratio = 80)
+
+#save the picture
+ggsave("gdp2.jpg",plot=gdp2,width = 20,height = 10, path = here::here("images"))
+
+#place the picture in code
+knitr::include_graphics(here::here("images", "gdp2.jpg"))
+```
+
+#My conclusion
+Emerging countries like India is going through an increase in gross capital formation since lots of infrastructure and real estates have been invested, as well as a decrease in household expenditure because India takes lower priority of household expenditure in boosting economy.
+
+Developped countries have a relatively stable trend in those four components, except countries that have solid industrial foundation like Germany is going through an slight increase in net exports. 
+
+
+
+
+
+
+

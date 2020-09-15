@@ -1,0 +1,112 @@
+---
+categories:
+- ""
+- ""
+date: "2020-9-15"
+description: Is there a rating difference between Steven Spielbergs and Tim Burton?
+draft: false
+image: blog08.png
+keywords: ""
+slug: blog8
+title: IMDB Ratings Differences between Directors  
+---
+
+
+```{r, setup, echo=FALSE}
+knitr::opts_chunk$set(
+  message = FALSE, 
+  warning = FALSE, 
+  tidy=FALSE,     # display code as typed
+  size="small")   # slightly smaller font for code
+options(digits = 3)
+
+# default figure size
+knitr::opts_chunk$set(
+  fig.width=6.75, 
+  fig.height=6.75,
+  fig.align = "center"
+)
+```
+
+
+```{r load-libraries}
+library(tidyverse)  # Load ggplot2, dplyr, and all the other tidyverse packages
+library(mosaic)
+library(ggthemes)
+library(GGally)
+library(readxl)
+library(here)
+library(skimr)
+library(janitor)
+library(broom)
+library(tidyquant)
+library(infer)
+library(openintro)
+```
+
+Lets look at the average ratings for Steven Spielberg and Tim Burton and analyse whether they are significantly different from each other.
+
+
+```{r read_data}
+
+movies <- read_csv(here::here("data", "movies.csv"))
+glimpse(movies)
+
+```
+
+The hypotheses are as stated below:
+
+Null hypothesis (H0) = The mean IMDB ratings for Steven Spielberg and Tim Burton are equal, i.e. the difference between the two means = 0 Alternate hypothesis (H1) = The mean IMDB ratings for Steven Spielberg and Tim Burton are not equal, i.e. they are significantly different
+ The first thing you need to do is to tidy the data, as it is in wide format and you must make it into long, tidy format. Please express all figures in billions (divide values by `1e9`, or $10^9$), and you want to rename the indicators into something shorter.
+
+
+```{r}
+selected_directors_statistic <- movies %>% 
+  #filtering dataframe to only include Spielberg and Burton
+  filter(director == "Steven Spielberg" | director == "Tim Burton") %>% 
+  group_by(director) %>% 
+  summarise(mean = mean(rating), sd = sd(rating), count = n(), se = sd / sqrt(count), t_critical = qt(0.975, count - 1),
+            lower_ci = mean - t_critical * se, upper_ci = mean + t_critical * se, rating = rating) 
+
+#Creating the t-statistic
+t_statistic <- t.test(rating ~ director, data = selected_directors_statistic)
+t_statistic
+```
+
+Since the t-statistic value is > 2 and p-value < 0.05 (alpha), we reject the null hypothesis and conclude that mean IMDB ratings for Steven Spielberg and Tim Burton are significantly different.
+
+
+
+```{r gdp1,  out.width="100%"}
+#selecting spielberg and burton
+selected_directors <- movies %>% 
+  filter(director == "Steven Spielberg" | director == "Tim Burton") %>% 
+  group_by(director) %>% 
+  summarise(mean = mean(rating), sd = sd(rating), count = n(), se = sd / sqrt(count), t_critical = qt(0.975, count - 1),
+            lower_ci = mean - t_critical * se, upper_ci = mean + t_critical * se) 
+
+#plotting the convidence intervals of both movies
+imdb_spielberg_and_burton <- ggplot(selected_directors, aes(x = mean, y = reorder(director, mean))) +
+  geom_rect(xmin = 7.27, xmax = 7.33, ymin = 0, ymax = 10, fill = "grey", aes(alpha = 0.5)) +
+  geom_point(size = 3, shape = 16) +
+  geom_text(aes(label = round(mean, 2)), size = 5, hjust = 0.4, vjust = -1) +
+  geom_errorbar(aes(xmin = lower_ci, xmax = upper_ci, colour = director, fill = director), width = 0.2, size = 1.5) +
+  scale_fill_manual(values = c("#FA8072", "#48D1CC")) +
+  geom_text(aes(label = round(lower_ci, 2)), hjust = 4, vjust = - 1) +
+  geom_text(aes(label = round(upper_ci, 2)), hjust = - 4, vjust = - 1) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  ggtitle("Do Spielberg and Burton have the same IMDB ratings") +
+  theme(plot.title = element_text(face = "bold")) +
+  labs(subtitle = "95% confidence intervals overlap", x = "Mean IMDB ratings", y = "") +
+  theme(aspect.ratio=3/5) 
+
+ggsave("imdb_spielberg_and_burton.jpg",plot=imdb_spielberg_and_burton,width = 10,height = 6, path = here::here("images"))
+
+#displaying the plot
+knitr::include_graphics(here::here("images", "imdb_spielberg_and_burton.jpg"))
+```
+
+
+
+

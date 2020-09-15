@@ -1,0 +1,273 @@
+<!DOCTYPE HTML>
+<html>
+
+    <head>
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+	<meta name="description" content="Your description">
+	<meta name="author" content="Tianchi Wu">
+	<meta name="generator" content="Hugo 0.75.0" />
+	<title>1970 - 2019 GDP and Its breakdown &middot; Portfolio website for Tianchi</title>
+	<!-- Stylesheets -->
+	
+	<link rel="stylesheet" href="/css/main.css"/>
+	
+	
+
+	
+
+	<!-- Custom Fonts -->
+	<link href="/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+	
+	<link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
+	<link rel="icon" type="image/x-icon" href="/favicon.ico">
+	
+
+	<!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+	<!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+	<!--[if lt IE 9]>
+	<script src="js/ie/html5shiv.js"></script>
+	<script src="js/ie/html5shiv.jsrespond.min.js"></script>
+	<![endif]-->
+</head>
+
+    <body>
+
+    <!-- Wrapper -->
+        <div id="wrapper">
+
+            <!-- Header -->
+    <header id="header" class="alt">
+        <a href="/" class="logo"><strong>Tianchi</strong> <span>Portfolio Website</span></a>
+        <nav>
+            <a href="#menu">Menu</a>
+        </nav>
+    </header>
+
+<!-- Menu -->
+    <nav id="menu">
+        <ul class="links">
+            
+                <li><a href="/">Home</a></li>
+            
+                <li><a href="/blogs">Blogs</a></li>
+            
+
+        </ul>
+        <ul class="actions vertical">
+            
+                <li><a href="/blogs" class="button special fit">My Projects</a></li>
+            
+            
+        </ul>
+    </nav>
+
+        <!-- Main -->
+            <div id="main" class="alt">
+
+                
+                    <section id="one">
+                        <div class="inner">
+                            <header class="major">
+                                <h1>1970 - 2019 GDP and Its breakdown</h1>
+                            </header>
+                            
+                                <span class="image main"><img src="/img/blogs/blog07.png" alt="" /></span>
+                            
+                            
+
+
+<pre class="r"><code>library(tidyverse)  # Load ggplot2, dplyr, and all the other tidyverse packages
+library(mosaic)
+library(ggthemes)
+library(GGally)
+library(readxl)
+library(here)
+library(skimr)
+library(janitor)
+library(broom)
+library(tidyquant)
+library(infer)
+library(openintro)</code></pre>
+<div id="gdp-components-over-time-and-among-countries" class="section level1">
+<h1>GDP components over time and among countries</h1>
+<p>Firstly we used United Nation’s database to load our data.</p>
+<pre class="r"><code>UN_GDP_data  &lt;-  read_excel(here::here(&quot;data&quot;, &quot;Download-GDPconstant-USD-countries.xls&quot;), # Excel filename
+                sheet=&quot;Download-GDPconstant-USD-countr&quot;, # Sheet name
+                skip=2) # Number of rows to skip</code></pre>
+<p>Then we tidy the data to pivot longer and also save lists for filter later.</p>
+<pre class="r"><code>#save lists for filter later 
+components &lt;- c(&quot;Gross capital formation&quot;, &quot;Exports of goods and services&quot;,     
+&quot;General government final consumption expenditure&quot;, &quot;Household consumption expenditure (including Non-profit institutions serving households)&quot;, &quot;Imports of goods and services&quot;,&quot;Gross Domestic Product (GDP)&quot;)
+
+#clean data
+tidy_GDP_data  &lt;-  UN_GDP_data %&gt;% 
+  pivot_longer(cols = (4:51), names_to = &quot;Year&quot;, values_to = &quot;Sum&quot;) %&gt;% 
+  mutate(&quot;Sum&quot; = Sum/1e9) %&gt;% 
+  mutate(Year = as.numeric(Year))
+
+data_renamed&lt;- tidy_GDP_data%&gt;%
+ filter(IndicatorName %in% components) %&gt;%   
+pivot_wider(names_from = IndicatorName,values_from = Sum)
+  
+
+names(data_renamed)[4:9] &lt;- c(&quot;HCE&quot;,&quot;GGFCE&quot;,&quot;GCF&quot;,&quot;EGS&quot;,&quot;IGS&quot;,&quot;GDP&quot;) 
+
+
+glimpse(data_renamed)</code></pre>
+<pre><code>## Rows: 10,560
+## Columns: 9
+## $ CountryID &lt;dbl&gt; 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, ...
+## $ Country   &lt;chr&gt; &quot;Afghanistan&quot;, &quot;Afghanistan&quot;, &quot;Afghanistan&quot;, &quot;Afghanistan...
+## $ Year      &lt;dbl&gt; 1970, 1971, 1972, 1973, 1974, 1975, 1976, 1977, 1978, 197...
+## $ HCE       &lt;dbl&gt; 5.07, 4.84, 4.70, 5.21, 5.59, 5.65, 5.68, 6.15, 6.30, 6.1...
+## $ GGFCE     &lt;dbl&gt; 0.372, 0.382, 0.402, 0.421, 0.431, 0.598, 0.627, 0.676, 0...
+## $ GCF       &lt;dbl&gt; 0.985, 1.050, 0.919, 0.919, 1.181, 1.365, 2.035, 1.917, 2...
+## $ EGS       &lt;dbl&gt; 0.112, 0.145, 0.173, 0.218, 0.300, 0.316, 0.417, 0.431, 0...
+## $ IGS       &lt;dbl&gt; 0.184, 0.269, 0.260, 0.278, 0.407, 0.459, 0.564, 0.679, 0...
+## $ GDP       &lt;dbl&gt; 10.72, 10.69, 8.94, 9.20, 9.70, 10.30, 10.86, 10.32, 11.0...</code></pre>
+<pre class="r"><code># Let us compare GDP components for these 3 countries
+country_list &lt;- c(&quot;United States&quot;,&quot;India&quot;, &quot;Germany&quot;)</code></pre>
+<p>The plot that we want to reproduce.</p>
+<pre class="r"><code>knitr::include_graphics(here::here(&quot;images&quot;, &quot;gdp1.png&quot;), error = FALSE)</code></pre>
+<p><img src="F:/Learning/London%20Business%20School/Courses/Applied%20Statistics/my_website/images/gdp1.png" width="100%" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>components &lt;- c(&quot;Gross capital formation&quot;, &quot;Exports of goods and services&quot;,     
+&quot;General government final consumption expenditure&quot;, &quot;Household consumption expenditure (including Non-profit institutions serving households)&quot;, &quot;Imports of goods and services&quot;)
+
+components2 &lt;- c(&quot;Gross capital formation&quot;, &quot;Exports&quot;,  
+&quot;Government expenditure&quot;, &quot;Household expenditure&quot;, &quot;Imports&quot;)
+
+three_GDP &lt;- tidy_GDP_data %&gt;% 
+  filter(Country %in% country_list) %&gt;%
+  filter(IndicatorName %in% components) 
+
+
+gdp1 &lt;- ggplot(data = three_GDP, aes(x = Year, y = Sum, group = IndicatorName, color = IndicatorName)) +
+  geom_line(size = 0.8)+
+  facet_wrap(~Country)+
+  scale_color_manual( values=c(&quot;#F8766D&quot;, &quot;#A3A500&quot;, &quot;#2FCB95&quot;, &quot;#00B0F6&quot;, &quot;#E76BF3&quot;),
+                      name=&quot;Components of GDP&quot;,
+                       labels= components2)+
+  labs(x = &quot;&quot;, y = &quot;Billion US$&quot;, title = &quot;GDP components over time&quot;, subtitle = &quot;In constant 2010 USD&quot;)+
+  theme(legend.position = &quot;right&quot;)+
+  theme_bw()+
+  coord_equal(ratio = 0.008)
+
+gdp1</code></pre>
+<p><img src="/blogs/blog7_files/figure-html/produce_the_plot-1.png" width="100%" style="display: block; margin: auto;" />
+Secondly,
+recall that GDP is the sum of Household Expenditure (Consumption <em>C</em>), Gross Capital Formation (business investment <em>I</em>), Government Expenditure (G) and Net Exports (exports - imports). We’ll calculate GDP using the components given above.</p>
+<pre class="r"><code>components3 &lt;- c(&quot;Gross capital formation&quot;, &quot;Exports of goods and services&quot;,    
+&quot;General government final consumption expenditure&quot;, &quot;Household consumption expenditure (including Non-profit institutions serving households)&quot;, &quot;Imports of goods and services&quot;, &quot;Gross Domestic Product (GDP)&quot;)
+
+three_GDP &lt;- data_renamed %&gt;% 
+  filter(Country %in% country_list)
+
+three_GDP_1&lt;- three_GDP %&gt;% 
+  mutate(&quot;Net_export&quot; = EGS - IGS ) 
+
+three_GDP_2 &lt;- three_GDP_1 %&gt;% 
+  mutate(&quot;GDP_calculated&quot; = HCE + GGFCE + GCF + Net_export)
+three_GDP_3 &lt;- three_GDP_2 %&gt;% 
+  mutate(&quot;GDP_difference_per&quot; = (GDP - GDP_calculated) / GDP)
+
+gdp_difference &lt;- ggplot(data = three_GDP_3, aes(x = Year, y = GDP_difference_per)) + 
+  geom_line(color = &quot;#00B0F6&quot;, size = 0.8)+
+  facet_wrap(~Country)+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1),limits = c(-0.08,0.07))+
+  theme_bw()+
+  labs(y = &quot;&quot;, title = &quot;Difference between GDP and calculated GDP&quot;)</code></pre>
+<p>We want to reproduce this plot to see changes of proportion of each component of GDP.</p>
+<pre class="r"><code>knitr::include_graphics(here::here(&quot;images&quot;, &quot;gdp2.png&quot;), error = FALSE)</code></pre>
+<p><img src="F:/Learning/London%20Business%20School/Courses/Applied%20Statistics/my_website/images/gdp2.png" width="100%" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>components4 &lt;- c(&quot;Government Expenditure&quot;, &quot;Gross capital formation&quot;, &quot;Household Expenditure&quot;, &quot;Net Exports&quot;)
+three_GDP_4 &lt;- three_GDP_3 %&gt;% 
+  mutate(&quot;GGFCE_per&quot; = (GGFCE) / GDP) %&gt;% 
+  mutate(&quot;GCF_per&quot; = (GCF) / GDP) %&gt;% 
+  mutate(&quot;HCE_per&quot; = (HCE) / GDP) %&gt;% 
+  mutate(&quot;Net_export_per&quot; = (Net_export) / GDP) %&gt;% 
+  select(Country, Year, GGFCE_per,GCF_per,HCE_per,Net_export_per)
+
+three_GDP_5 &lt;- three_GDP_4 %&gt;% 
+  pivot_longer(cols = (3:6), names_to = &quot;Components&quot;, values_to = &quot;Proportion&quot; ) 
+
+gdp2 &lt;- ggplot(data = three_GDP_5, aes(x = Year, y = Proportion, group = Components, color = Components)) +
+  geom_line(size = 1)+
+  facet_wrap(~Country)+
+  scale_color_manual( values=c(&quot;#F8766D&quot;, &quot;#A3A500&quot;, &quot;#2FCB95&quot;, &quot;#E76BF3&quot;),
+                      name=&quot;&quot;,
+                       labels= components4)+
+  labs(x = &quot;&quot;, y = &quot;proportion&quot;, title = &quot;GDP and its breakdown at constant 2010 prices in US Dollars&quot;, caption = &quot;Source: United Nations, https://unstats.un.org/unsd/snaama/Downloads&quot;)+
+  theme(legend.position = &quot;right&quot;)+
+  theme_bw()+
+  coord_equal(ratio = 80)
+
+#save the picture
+ggsave(&quot;gdp2.jpg&quot;,plot=gdp2,width = 20,height = 10, path = here::here(&quot;images&quot;))
+
+#place the picture in code
+knitr::include_graphics(here::here(&quot;images&quot;, &quot;gdp2.jpg&quot;))</code></pre>
+<p><img src="F:/Learning/London%20Business%20School/Courses/Applied%20Statistics/my_website/images/gdp2.jpg" width="100%" style="display: block; margin: auto;" /></p>
+<p>#My conclusion
+Emerging countries like India is going through an increase in gross capital formation since lots of infrastructure and real estates have been invested, as well as a decrease in household expenditure because India takes lower priority of household expenditure in boosting economy.</p>
+<p>Developped countries have a relatively stable trend in those four components, except countries that have solid industrial foundation like Germany is going through an slight increase in net exports.</p>
+</div>
+
+                        </div>
+                    </section>
+            <!-- Disqus Inject -->
+                
+            </div>
+            
+        <!-- Footer -->
+            
+                <!-- Footer -->
+    <footer id="footer">
+        <div class="inner">
+            <ul class="icons">
+                
+                    <li><a href="https://www.twitter.com" class="icon alt fa-twitter" target="_blank"><span class="label">Twitter</span></a></li>
+                
+                    <li><a href="https://www.facebook.com" class="icon alt fa-facebook" target="_blank"><span class="label">Facebook</span></a></li>
+                
+                    <li><a href="" class="icon alt " target="_blank"><span class="label"></span></a></li>
+                
+                    <li><a href="https://www.github.com/tianchi-wu" class="icon alt fa-github" target="_blank"><span class="label">GitHub</span></a></li>
+                
+                    <li><a href="https://www.linkedin.com/in/tianchi" class="icon alt fa-linkedin" target="_blank"><span class="label">LinkedIn</span></a></li>
+                
+            </ul>
+            <ul class="copyright">
+                <li>&copy; Company Name</li>
+                
+                <li>Design:  <a href="https://www.html5up.net">HTML5 UP</a></li>
+                
+            </ul>
+        </div>
+    </footer>
+
+            
+        </div>
+
+    <!-- Scripts -->
+        <!-- Scripts -->
+    <!-- jQuery -->
+    <script src="/js/jquery.min.js"></script>
+    <script src="/js/jquery.scrolly.min.js"></script>
+    <script src="/js/jquery.scrollex.min.js"></script>
+    <script src="/js/skel.min.js"></script>
+    <script src="/js/util.js"></script>
+
+    
+
+    <!-- Main JS -->
+    <script src="/js/main.js"></script>
+
+    
+
+    
+
+    </body>
+</html>
