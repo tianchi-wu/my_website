@@ -1,0 +1,290 @@
+<!DOCTYPE HTML>
+<html>
+
+    <head>
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+	<meta name="description" content="Your description">
+	<meta name="author" content="Tianchi Wu">
+	<meta name="generator" content="Hugo 0.75.0" />
+	<title>2016 CA Contributors Plots &middot; Portfolio website for Tianchi</title>
+	<!-- Stylesheets -->
+	
+	<link rel="stylesheet" href="/css/main.css"/>
+	
+	
+
+	
+
+	<!-- Custom Fonts -->
+	<link href="/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+	
+	<link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
+	<link rel="icon" type="image/x-icon" href="/favicon.ico">
+	
+
+	<!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+	<!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+	<!--[if lt IE 9]>
+	<script src="js/ie/html5shiv.js"></script>
+	<script src="js/ie/html5shiv.jsrespond.min.js"></script>
+	<![endif]-->
+</head>
+
+    <body>
+
+    <!-- Wrapper -->
+        <div id="wrapper">
+
+            <!-- Header -->
+    <header id="header" class="alt">
+        <a href="/" class="logo"><strong>Tianchi</strong> <span>Portfolio Website</span></a>
+        <nav>
+            <a href="#menu">Menu</a>
+        </nav>
+    </header>
+
+<!-- Menu -->
+    <nav id="menu">
+        <ul class="links">
+            
+                <li><a href="/">Home</a></li>
+            
+                <li><a href="/blogs">Blogs</a></li>
+            
+
+        </ul>
+        <ul class="actions vertical">
+            
+                <li><a href="/blogs" class="button special fit">My Projects</a></li>
+            
+            
+        </ul>
+    </nav>
+
+        <!-- Main -->
+            <div id="main" class="alt">
+
+                
+                    <section id="one">
+                        <div class="inner">
+                            <header class="major">
+                                <h1>2016 CA Contributors Plots</h1>
+                            </header>
+                            
+                                <span class="image main"><img src="/img/blogs/blog05.png" alt="" /></span>
+                            
+                            
+
+
+<pre class="r"><code>knitr::opts_chunk$set(
+  message = FALSE, 
+  warning = FALSE, 
+  tidy=FALSE,     # display code as typed
+  size=&quot;small&quot;)   # slightly smaller font for code
+options(digits = 3)
+
+# default figure size
+knitr::opts_chunk$set(
+  fig.width=6.75, 
+  fig.height=6.75,
+  fig.align = &quot;center&quot;
+)</code></pre>
+<div id="challenge-2-2016-california-contributors-plots" class="section level1">
+<h1>Challenge 2: 2016 California Contributors plots</h1>
+<p><img src="F:/Learning/London Business School/Courses/Applied Statistics/my_website/images/challenge2.png" width="100%" style="display: block; margin: auto;" /></p>
+<p>Firstly, we import patchwork, use vroom() to load data and join two datasets.</p>
+<pre class="r"><code>library(patchwork)
+# Load data.
+CA_contributors_2016 &lt;- vroom::vroom(here::here(&quot;data&quot;,&quot;CA_contributors_2016.csv&quot;))
+zip_code &lt;-
+vroom::vroom(here::here(&quot;data&quot;,&quot;zip_code_database.csv&quot;))
+# Change zip_code to the same data type so we could join.
+zip_code &lt;- zip_code %&gt;% 
+  mutate(zip = as.numeric(zip))
+CA_contributors_2016 &lt;- CA_contributors_2016 %&gt;% 
+  inner_join(zip_code, by =  &quot;zip&quot;)
+glimpse(CA_contributors_2016)</code></pre>
+<pre><code>## Rows: 1,292,843
+## Columns: 19
+## $ cand_nm              &lt;chr&gt; &quot;Clinton, Hillary Rodham&quot;, &quot;Clinton, Hillary R...
+## $ contb_receipt_amt    &lt;dbl&gt; 50.0, 200.0, 5.0, 48.3, 40.0, 244.3, 35.0, 100...
+## $ zip                  &lt;dbl&gt; 94939, 93428, 92337, 95334, 93011, 95826, 9027...
+## $ contb_date           &lt;date&gt; 2016-04-26, 2016-04-20, 2016-04-02, 2016-11-2...
+## $ type                 &lt;chr&gt; &quot;STANDARD&quot;, &quot;STANDARD&quot;, &quot;STANDARD&quot;, &quot;STANDARD&quot;...
+## $ primary_city         &lt;chr&gt; &quot;Larkspur&quot;, &quot;Cambria&quot;, &quot;Fontana&quot;, &quot;Livingston&quot;...
+## $ acceptable_cities    &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, &quot;Laguna Hi...
+## $ unacceptable_cities  &lt;chr&gt; NA, NA, NA, NA, NA, &quot;Walsh Station&quot;, NA, NA, N...
+## $ state                &lt;chr&gt; &quot;CA&quot;, &quot;CA&quot;, &quot;CA&quot;, &quot;CA&quot;, &quot;CA&quot;, &quot;CA&quot;, &quot;CA&quot;, &quot;CA&quot;...
+## $ county               &lt;chr&gt; &quot;Marin County&quot;, &quot;San Luis Obispo County&quot;, &quot;San...
+## $ timezone             &lt;chr&gt; &quot;America/Los_Angeles&quot;, &quot;America/Los_Angeles&quot;, ...
+## $ area_codes           &lt;dbl&gt; 4.16e+05, 8.05e+02, 9.10e+05, 2.09e+02, 8.05e+...
+## $ latitude             &lt;dbl&gt; 37.9, 35.6, 34.0, 37.3, 34.2, 38.5, 33.9, 33.9...
+## $ longitude            &lt;dbl&gt; -123, -121, -117, -121, -119, -121, -118, -118...
+## $ world_region         &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA...
+## $ country              &lt;chr&gt; &quot;US&quot;, &quot;US&quot;, &quot;US&quot;, &quot;US&quot;, &quot;US&quot;, &quot;US&quot;, &quot;US&quot;, &quot;US&quot;...
+## $ decommissioned       &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0...
+## $ estimated_population &lt;dbl&gt; 5652, 5624, 27988, 11811, 1879, 26728, 33427, ...
+## $ notes                &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, &quot;no NWS da...</code></pre>
+<p>Secondly, we clean our data by selecting the data we need.</p>
+<pre class="r"><code>CA_contributors_2016_cleaned &lt;- CA_contributors_2016 %&gt;%
+  group_by(cand_nm,primary_city) %&gt;% 
+  summarise(total_amt = sum(contb_receipt_amt)) %&gt;% 
+  select(candidate = cand_nm, city = primary_city, money_raised = total_amt)
+CA_contributors_2016_cleaned</code></pre>
+<pre><code>## # A tibble: 7,732 x 3
+## # Groups:   candidate [25]
+##    candidate city         money_raised
+##    &lt;chr&gt;     &lt;chr&gt;               &lt;dbl&gt;
+##  1 Bush, Jeb Agoura Hills        4200 
+##  2 Bush, Jeb Alameda             1700 
+##  3 Bush, Jeb Alamo               5400 
+##  4 Bush, Jeb Alhambra            5400 
+##  5 Bush, Jeb Aliso Viejo         8100 
+##  6 Bush, Jeb Altadena            5650 
+##  7 Bush, Jeb Anaheim             9050 
+##  8 Bush, Jeb Arcadia            31708.
+##  9 Bush, Jeb Atherton           61400 
+## 10 Bush, Jeb Auburn              2700 
+## # ... with 7,722 more rows</code></pre>
+<p>Thirdly, we plot Hillary’s and Trump’s top 10 cities and put them together using patchwork.</p>
+<pre class="r"><code># Import scales to adjust our plot.
+library(scales)
+# Plot Hillary&#39;s top 10 cities
+hillary &lt;- CA_contributors_2016_cleaned %&gt;%
+  filter(candidate == &quot;Clinton, Hillary Rodham&quot;) %&gt;%
+  top_n(10, wt = money_raised) %&gt;% 
+  ggplot(aes(x = money_raised, y = reorder(city, money_raised))) + geom_col(fill = &quot;dodgerblue3&quot;) +   
+  facet_grid(.~candidate) +
+  labs(title = NULL, x = NULL, y = NULL) +
+  scale_x_continuous(labels = scales::dollar_format()) + 
+  theme_update(plot.title = element_text(hjust = 0.5)) + #center the title
+  theme(strip.background = element_rect(fill = &quot;grey&quot;), 
+        stip.text = element_text(size = 8, color = &quot;black&quot;),
+  ) + 
+  theme_bw()
+hillary</code></pre>
+<p><img src="/blogs/blog5_files/figure-html/hillary_trump_top10-1.png" width="648" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># Plot Trump&#39;s top 10 cities 
+trump &lt;- CA_contributors_2016_cleaned %&gt;%
+  filter(candidate == &quot;Trump, Donald J.&quot;) %&gt;%
+  top_n(10, wt = money_raised) %&gt;% 
+  ggplot(aes(x = money_raised, y = reorder(city, money_raised))) + geom_col(fill = &quot;brown3&quot;) +   
+  facet_grid(.~candidate) +
+  labs(title = NULL, x = NULL, y = NULL) +
+  scale_x_continuous(labels = scales::dollar_format()) + 
+  theme_update(plot.title = element_text(hjust = 0.5)) + #center the title
+  theme(strip.background = element_rect(fill = &quot;grey&quot;), 
+        stip.text = element_text(size = 8, color = &quot;black&quot;),
+  ) + 
+  theme_bw()
+trump</code></pre>
+<p><img src="/blogs/blog5_files/figure-html/hillary_trump_top10-2.png" width="648" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># Combine them together and add title.
+hillary_trump_top10 &lt;- hillary + 
+  trump +
+  plot_annotation(title = &quot;Where did candidates raise most money?&quot;, caption = &quot;Amount Raised&quot;) 
+  theme_update(plot.title = element_text(size = 10, hjust = 0.1),
+               aspect.ratio = 9/4,
+               plot.caption = element_text(hjust = 0.55, vjust = 0.5))
+# Save the picture in the right proportion.
+ggsave(&quot;hillary_trump_top10.jpg&quot;, plot = hillary_trump_top10, width = 9, height = 4, path = here::here(&quot;images&quot;))
+knitr::include_graphics(here::here(&quot;images&quot;, &quot;hillary_trump_top10.jpg&quot;))</code></pre>
+<p><img src="F:/Learning/London%20Business%20School/Courses/Applied%20Statistics/my_website/images/hillary_trump_top10.jpg" width="1350" style="display: block; margin: auto;" />
+Finally, we try to make top 10 city plots for top 10 amount raised candidates.</p>
+<pre class="r"><code># Select only the name list of 10 candidates who earned most contriution. 
+top10_candidate &lt;- CA_contributors_2016_cleaned %&gt;% 
+  group_by(candidate) %&gt;% 
+  summarise(money_raised_person = sum(money_raised)) %&gt;% 
+  top_n(10, wt = money_raised_person) 
+top10_namelist &lt;- top10_candidate$candidate
+top10_namelist</code></pre>
+<pre><code>##  [1] &quot;Bush, Jeb&quot;                 &quot;Carson, Benjamin S.&quot;      
+##  [3] &quot;Clinton, Hillary Rodham&quot;   &quot;Cruz, Rafael Edward &#39;Ted&#39;&quot;
+##  [5] &quot;Fiorina, Carly&quot;            &quot;Kasich, John R.&quot;          
+##  [7] &quot;Paul, Rand&quot;                &quot;Rubio, Marco&quot;             
+##  [9] &quot;Sanders, Bernard&quot;          &quot;Trump, Donald J.&quot;</code></pre>
+<pre class="r"><code># Filter using our namelist, and then create 10 column pots for them.
+library(tidytext)
+top10_plotS &lt;- CA_contributors_2016_cleaned %&gt;% 
+                filter(candidate%in% top10_namelist) %&gt;% 
+                group_by(candidate) %&gt;% 
+                top_n(10,wt = money_raised) %&gt;% 
+                ungroup %&gt;% 
+                mutate(candidate = as.factor(candidate),
+                   city = reorder_within(city, money_raised, candidate)) %&gt;%
+                ggplot(aes(x = city,y = money_raised, fill = candidate))+
+                geom_col(show.legend = FALSE)+
+                facet_wrap(~candidate, scales = &quot;free&quot;) +
+                coord_flip() +
+                scale_x_reordered() +
+                scale_y_continuous(expand = c(0,0))+ 
+                labs(title = &quot;Top 10 candidates ranked by money raised&quot;,x=NULL,y=NULL)+
+                          
+                          theme_economist(base_size = 10)
+# save the picture 
+ggsave(&quot;top10plot.jpg&quot;,plot=top10_plotS,width = 20,height = 15, path = here::here(&quot;images&quot;))
+
+# put it here
+knitr::include_graphics(here::here(&quot;images&quot;, &quot;top10plot.jpg&quot;))</code></pre>
+<p><img src="F:/Learning/London%20Business%20School/Courses/Applied%20Statistics/my_website/images/top10plot.jpg" width="3000" style="display: block; margin: auto;" /></p>
+</div>
+
+                        </div>
+                    </section>
+            <!-- Disqus Inject -->
+                
+            </div>
+            
+        <!-- Footer -->
+            
+                <!-- Footer -->
+    <footer id="footer">
+        <div class="inner">
+            <ul class="icons">
+                
+                    <li><a href="https://www.twitter.com" class="icon alt fa-twitter" target="_blank"><span class="label">Twitter</span></a></li>
+                
+                    <li><a href="https://www.facebook.com" class="icon alt fa-facebook" target="_blank"><span class="label">Facebook</span></a></li>
+                
+                    <li><a href="" class="icon alt " target="_blank"><span class="label"></span></a></li>
+                
+                    <li><a href="https://www.github.com/tianchi-wu" class="icon alt fa-github" target="_blank"><span class="label">GitHub</span></a></li>
+                
+                    <li><a href="https://www.linkedin.com/in/tianchi" class="icon alt fa-linkedin" target="_blank"><span class="label">LinkedIn</span></a></li>
+                
+            </ul>
+            <ul class="copyright">
+                <li>&copy; Company Name</li>
+                
+                <li>Design:  <a href="https://www.html5up.net">HTML5 UP</a></li>
+                
+            </ul>
+        </div>
+    </footer>
+
+            
+        </div>
+
+    <!-- Scripts -->
+        <!-- Scripts -->
+    <!-- jQuery -->
+    <script src="/js/jquery.min.js"></script>
+    <script src="/js/jquery.scrolly.min.js"></script>
+    <script src="/js/jquery.scrollex.min.js"></script>
+    <script src="/js/skel.min.js"></script>
+    <script src="/js/util.js"></script>
+
+    
+
+    <!-- Main JS -->
+    <script src="/js/main.js"></script>
+
+    
+
+    
+
+    </body>
+</html>
