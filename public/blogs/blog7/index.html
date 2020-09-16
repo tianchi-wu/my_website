@@ -79,6 +79,9 @@
                             
 
 
+<div id="context" class="section level1">
+<h1>Context</h1>
+<p>How much have the main components of GDP change in the past 30 years for developed countries and developing countries? And what’s the true reason behind that.</p>
 <pre class="r"><code>library(tidyverse)  # Load ggplot2, dplyr, and all the other tidyverse packages
 library(mosaic)
 library(ggthemes)
@@ -91,8 +94,6 @@ library(broom)
 library(tidyquant)
 library(infer)
 library(openintro)</code></pre>
-<div id="gdp-components-over-time-and-among-countries" class="section level1">
-<h1>GDP components over time and among countries</h1>
 <p>Firstly we used United Nation’s database to load our data.</p>
 <pre class="r"><code>UN_GDP_data  &lt;-  read_excel(here::here(&quot;data&quot;, &quot;Download-GDPconstant-USD-countries.xls&quot;), # Excel filename
                 sheet=&quot;Download-GDPconstant-USD-countr&quot;, # Sheet name
@@ -202,9 +203,13 @@ gdp2 &lt;- ggplot(data = three_GDP_5, aes(x = Year, y = Proportion, group = Comp
 
 gdp2</code></pre>
 <p><img src="/blogs/blog7_files/figure-html/gdp_breakdown-1.png" width="100%" style="display: block; margin: auto;" /></p>
-<p>#My conclusion
-Emerging countries like India is going through an increase in gross capital formation since lots of infrastructure and real estates have been invested, as well as a decrease in household expenditure because India takes lower priority of household expenditure in boosting economy.</p>
-<p>Developped countries have a relatively stable trend in those four components, except countries that have solid industrial foundation like Germany is going through an slight increase in net exports.</p>
+</div>
+<div id="conclusion" class="section level1">
+<h1>Conclusion</h1>
+<ul>
+<li><p>Emerging countries like India is going through an increase in gross capital formation since lots of infrastructure and real estates have been invested, as well as a decrease in household expenditure because India takes lower priority of household expenditure in boosting economy.</p></li>
+<li><p>Developped countries have a relatively stable trend in those four components, except countries that have solid industrial foundation like Germany is going through an slight increase in net exports.</p></li>
+</ul>
 </div>
 
                         </div>

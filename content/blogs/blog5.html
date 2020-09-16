@@ -13,22 +13,9 @@ title: 2016 CA Contributors Plots
 
 
 
-<pre class="r"><code>knitr::opts_chunk$set(
-  message = FALSE, 
-  warning = FALSE, 
-  tidy=FALSE,     # display code as typed
-  size=&quot;small&quot;)   # slightly smaller font for code
-options(digits = 3)
-
-# default figure size
-knitr::opts_chunk$set(
-  fig.width=6.75, 
-  fig.height=6.75,
-  fig.align = &quot;center&quot;
-)</code></pre>
-<div id="california-contributors-plots" class="section level1">
-<h1>2016 California Contributors plots</h1>
-<p><img src="F:/Learning/London Business School/Courses/Applied Statistics/my_website/images/challenge2.png" width="100%" style="display: block; margin: auto;" /></p>
+<div id="context" class="section level1">
+<h1>Context</h1>
+<p>During the 2016 U.S presidential selection, candidates have raised much money in California. We want to know what’s the top 10 cities for top 10 candidates. Does the candidate that raises most money finally win selection?</p>
 <p>Firstly, we import patchwork, use vroom() to load data and join two datasets.</p>
 <pre class="r"><code>library(patchwork)
 # Load data.
@@ -44,7 +31,7 @@ glimpse(CA_contributors_2016)</code></pre>
 <pre><code>## Rows: 1,292,843
 ## Columns: 19
 ## $ cand_nm              &lt;chr&gt; &quot;Clinton, Hillary Rodham&quot;, &quot;Clinton, Hillary R...
-## $ contb_receipt_amt    &lt;dbl&gt; 50.0, 200.0, 5.0, 48.3, 40.0, 244.3, 35.0, 100...
+## $ contb_receipt_amt    &lt;dbl&gt; 50.00, 200.00, 5.00, 48.33, 40.00, 244.34, 35....
 ## $ zip                  &lt;dbl&gt; 94939, 93428, 92337, 95334, 93011, 95826, 9027...
 ## $ contb_date           &lt;date&gt; 2016-04-26, 2016-04-20, 2016-04-02, 2016-11-2...
 ## $ type                 &lt;chr&gt; &quot;STANDARD&quot;, &quot;STANDARD&quot;, &quot;STANDARD&quot;, &quot;STANDARD&quot;...
@@ -54,9 +41,9 @@ glimpse(CA_contributors_2016)</code></pre>
 ## $ state                &lt;chr&gt; &quot;CA&quot;, &quot;CA&quot;, &quot;CA&quot;, &quot;CA&quot;, &quot;CA&quot;, &quot;CA&quot;, &quot;CA&quot;, &quot;CA&quot;...
 ## $ county               &lt;chr&gt; &quot;Marin County&quot;, &quot;San Luis Obispo County&quot;, &quot;San...
 ## $ timezone             &lt;chr&gt; &quot;America/Los_Angeles&quot;, &quot;America/Los_Angeles&quot;, ...
-## $ area_codes           &lt;dbl&gt; 4.16e+05, 8.05e+02, 9.10e+05, 2.09e+02, 8.05e+...
-## $ latitude             &lt;dbl&gt; 37.9, 35.6, 34.0, 37.3, 34.2, 38.5, 33.9, 33.9...
-## $ longitude            &lt;dbl&gt; -123, -121, -117, -121, -119, -121, -118, -118...
+## $ area_codes           &lt;dbl&gt; 4.159250e+05, 8.050000e+02, 9.097140e+05, 2.09...
+## $ latitude             &lt;dbl&gt; 37.93, 35.59, 34.05, 37.34, 34.21, 38.54, 33.8...
+## $ longitude            &lt;dbl&gt; -122.53, -121.01, -117.46, -120.75, -119.03, -...
 ## $ world_region         &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA...
 ## $ country              &lt;chr&gt; &quot;US&quot;, &quot;US&quot;, &quot;US&quot;, &quot;US&quot;, &quot;US&quot;, &quot;US&quot;, &quot;US&quot;, &quot;US&quot;...
 ## $ decommissioned       &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0...
@@ -66,8 +53,9 @@ glimpse(CA_contributors_2016)</code></pre>
 <pre class="r"><code>CA_contributors_2016_cleaned &lt;- CA_contributors_2016 %&gt;%
   group_by(cand_nm,primary_city) %&gt;% 
   summarise(total_amt = sum(contb_receipt_amt)) %&gt;% 
-  select(candidate = cand_nm, city = primary_city, money_raised = total_amt)
-CA_contributors_2016_cleaned</code></pre>
+  select(candidate = cand_nm, city = primary_city, money_raised = total_amt)</code></pre>
+<pre><code>## `summarise()` regrouping output by &#39;cand_nm&#39; (override with `.groups` argument)</code></pre>
+<pre class="r"><code>CA_contributors_2016_cleaned</code></pre>
 <pre><code>## # A tibble: 7,732 x 3
 ## # Groups:   candidate [25]
 ##    candidate city         money_raised
@@ -85,8 +73,22 @@ CA_contributors_2016_cleaned</code></pre>
 ## # ... with 7,722 more rows</code></pre>
 <p>Thirdly, we plot Hillary’s and Trump’s top 10 cities and put them together using patchwork.</p>
 <pre class="r"><code># Import scales to adjust our plot.
-library(scales)
-# Plot Hillary&#39;s top 10 cities
+library(scales)</code></pre>
+<pre><code>## 
+## 载入程辑包：&#39;scales&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:vroom&#39;:
+## 
+##     col_factor</code></pre>
+<pre><code>## The following object is masked from &#39;package:mosaic&#39;:
+## 
+##     rescale</code></pre>
+<pre><code>## The following object is masked from &#39;package:purrr&#39;:
+## 
+##     discard</code></pre>
+<pre><code>## The following object is masked from &#39;package:readr&#39;:
+## 
+##     col_factor</code></pre>
+<pre class="r"><code># Plot Hillary&#39;s top 10 cities
 hillary &lt;- CA_contributors_2016_cleaned %&gt;%
   filter(candidate == &quot;Clinton, Hillary Rodham&quot;) %&gt;%
   top_n(10, wt = money_raised) %&gt;% 
@@ -100,7 +102,7 @@ hillary &lt;- CA_contributors_2016_cleaned %&gt;%
   ) + 
   theme_bw()
 hillary</code></pre>
-<p><img src="/blogs/blog5_files/figure-html/hillary_trump_top10-1.png" width="648" style="display: block; margin: auto;" /></p>
+<p><img src="/blogs/blog5_files/figure-html/hillary_trump_top10-1.png" width="672" /></p>
 <pre class="r"><code># Plot Trump&#39;s top 10 cities 
 trump &lt;- CA_contributors_2016_cleaned %&gt;%
   filter(candidate == &quot;Trump, Donald J.&quot;) %&gt;%
@@ -115,7 +117,7 @@ trump &lt;- CA_contributors_2016_cleaned %&gt;%
   ) + 
   theme_bw()
 trump</code></pre>
-<p><img src="/blogs/blog5_files/figure-html/hillary_trump_top10-2.png" width="648" style="display: block; margin: auto;" /></p>
+<p><img src="/blogs/blog5_files/figure-html/hillary_trump_top10-2.png" width="672" /></p>
 <pre class="r"><code># Combine them together and add title.
 hillary_trump_top10 &lt;- hillary + 
   trump +
@@ -125,14 +127,15 @@ hillary_trump_top10 &lt;- hillary +
                plot.caption = element_text(hjust = 0.55, vjust = 0.5))
 
   hillary_trump_top10</code></pre>
-<p><img src="/blogs/blog5_files/figure-html/hillary_trump-1.png" width="648" style="display: block; margin: auto;" />
+<p><img src="/blogs/blog5_files/figure-html/hillary_trump-1.png" width="672" />
 Finally, we try to make top 10 city plots for top 10 amount raised candidates.</p>
 <pre class="r"><code># Select only the name list of 10 candidates who earned most contriution. 
 top10_candidate &lt;- CA_contributors_2016_cleaned %&gt;% 
   group_by(candidate) %&gt;% 
   summarise(money_raised_person = sum(money_raised)) %&gt;% 
-  top_n(10, wt = money_raised_person) 
-top10_namelist &lt;- top10_candidate$candidate
+  top_n(10, wt = money_raised_person) </code></pre>
+<pre><code>## `summarise()` ungrouping output (override with `.groups` argument)</code></pre>
+<pre class="r"><code>top10_namelist &lt;- top10_candidate$candidate
 top10_namelist</code></pre>
 <pre><code>##  [1] &quot;Bush, Jeb&quot;                 &quot;Carson, Benjamin S.&quot;      
 ##  [3] &quot;Clinton, Hillary Rodham&quot;   &quot;Cruz, Rafael Edward &#39;Ted&#39;&quot;
@@ -156,7 +159,11 @@ top10_plotS &lt;- CA_contributors_2016_cleaned %&gt;%
                 scale_y_continuous(expand = c(0,0))+ 
                 labs(title = &quot;Top 10 candidates ranked by money raised&quot;,x=NULL,y=NULL)+
                           
-                          theme_economist(base_size = 10)
+                          theme_economist()
 top10_plotS</code></pre>
-<p><img src="/blogs/blog5_files/figure-html/top10_candidates_plots-1.png" width="648" style="display: block; margin: auto;" /></p>
+<p><img src="/blogs/blog5_files/figure-html/top10_candidates_plots-1.png" width="672" /></p>
+</div>
+<div id="conclusion" class="section level1">
+<h1>Conclusion</h1>
+<p>All candidates almost raise the most money from both Los Angeles and San Francisco. That makes sense because they’re the top 2 cities in CA. Another interesting point to notice here, is our final winner Donald Trump raised money from some unfamous cities.</p>
 </div>

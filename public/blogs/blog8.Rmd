@@ -10,7 +10,9 @@ keywords: ""
 slug: blog8
 title: IMDB Ratings Differences between Directors  
 ---
-
+# Context
+Do you like Spielberg more or Burton more?
+Let's look at the average IMDB ratings for Steven Spielberg and Tim Burton and analyze whether they are significantly different from each other.
 
 ```{r, setup, echo=FALSE}
 knitr::opts_chunk$set(
@@ -44,7 +46,7 @@ library(infer)
 library(openintro)
 ```
 
-Lets look at the average ratings for Steven Spielberg and Tim Burton and analyse whether they are significantly different from each other.
+
 
 
 ```{r read_data}
@@ -130,4 +132,7 @@ p_value <- ratings_in_null_world %>%
   get_p_value(obs_stat = obs_diff_mean, direction = "both")
 p_value   
 ```
+# Conclusion
 When we use the infer package to simulate from a null distribution we get a p-value of 0.004 < 0.05, therefore we can conclude that the difference in our sample is not zero and there is significant difference in mean ratings of movies by the two directors.
+
+Spielberg, you're a better director, at least for IMDB users.

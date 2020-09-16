@@ -13,6 +13,9 @@ title: 2015 - 2020 TfL Bike Rentals Weekly Change
 
 
 
+<div id="context" class="section level1">
+<h1>Context</h1>
+<p>We have the data from TfL bike rentals from 2015 to 2020. And we want to see what’s the weekly excess or lack compared to expected number for the whole year.</p>
 <p>Recall the TfL data on how many bikes were hired every single day. We can get the latest data by running the following</p>
 <pre class="r"><code>url &lt;- &quot;https://data.london.gov.uk/download/number-bicycle-hires/ac29363e-e0cb-47cc-a97a-e216d900a6b0/tfl-daily-cycle-hires.xlsx&quot;
 
@@ -70,6 +73,7 @@ geom_ribbon(aes(ymin = bike_filtered$average_hire , ymax = bike_filtered$bikes_h
 
 p</code></pre>
 <p><img src="/blogs/blog6_files/figure-html/tfl_absolute_monthly_change_code-1.png" width="648" style="display: block; margin: auto;" /></p>
+<p>Then we filter to weekly change and use ggribbon to see weekly excess or lack.</p>
 <pre class="r"><code>##first we need to filter our database to have only years &gt;= 2015
 bike_filtered &lt;-
 bike %&gt;% filter(year &gt;= 2015)
@@ -97,6 +101,7 @@ mutate(weekly_change_per = (bikes_hired - weekly_average)/weekly_average)%&gt;%
 
 #make a new column &quot;week_shade&quot; to colorize the background.
   mutate(week_shade = if_else(week &lt;=13|week&gt;=26&amp;week&lt;=39,&quot;white&quot;,&quot;grey&quot;))</code></pre>
+<p>A really tricky point here is we use two ggribbons to make the plot. One for excess above the expected line, the other for lack below the expected line.</p>
 <pre class="r"><code>p_week &lt;- ggplot(data = bike_filtered, aes(x = week, y = weekly_change_per)) +  
 geom_line()+
   
@@ -128,3 +133,8 @@ geom_tile(aes(fill = week_shade),
 
 p_week</code></pre>
 <p><img src="/blogs/blog6_files/figure-html/unnamed-chunk-1-1.png" width="648" style="display: block; margin: auto;" /></p>
+</div>
+<div id="conclusion" class="section level1">
+<h1>Conclusion</h1>
+<p>We could see among the five years, the first half of 2020 has the highest votality in weekly change. And mostly downwards change. This is due to COVID-19 pandemic force people to stay home.</p>
+</div>

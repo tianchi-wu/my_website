@@ -11,6 +11,8 @@ slug: blog7
 title: 1970 - 2019 GDP and Its breakdown 
 ---
 
+# Context
+How much have the main components of GDP change in the past 30 years for developed countries and developing countries? And what's the true reason behind that.
 
 ```{r, setup, echo=FALSE}
 knitr::opts_chunk$set(
@@ -44,9 +46,6 @@ library(infer)
 library(openintro)
 ```
 
-
-
-# GDP components over time and among countries
 
 Firstly we used United Nation's database to load our data.
 
@@ -177,10 +176,11 @@ gdp2 <- ggplot(data = three_GDP_5, aes(x = Year, y = Proportion, group = Compone
 gdp2
 ```
 
-#My conclusion
-Emerging countries like India is going through an increase in gross capital formation since lots of infrastructure and real estates have been invested, as well as a decrease in household expenditure because India takes lower priority of household expenditure in boosting economy.
+# Conclusion
 
-Developped countries have a relatively stable trend in those four components, except countries that have solid industrial foundation like Germany is going through an slight increase in net exports. 
+- Emerging countries like India is going through an increase in gross capital formation since lots of infrastructure and real estates have been invested, as well as a decrease in household expenditure because India takes lower priority of household expenditure in boosting economy.
+
+- Developped countries have a relatively stable trend in those four components, except countries that have solid industrial foundation like Germany is going through an slight increase in net exports. 
 
 
 

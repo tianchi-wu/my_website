@@ -12,22 +12,6 @@ title: 2016 CA Contributors Plots
 ---
 
 
-```{r, setup}
-knitr::opts_chunk$set(
-  message = FALSE, 
-  warning = FALSE, 
-  tidy=FALSE,     # display code as typed
-  size="small")   # slightly smaller font for code
-options(digits = 3)
-
-# default figure size
-knitr::opts_chunk$set(
-  fig.width=6.75, 
-  fig.height=6.75,
-  fig.align = "center"
-)
-```
-
 
 ```{r load-libraries, warning=FALSE, message=FALSE, echo=FALSE}
 library(tidyverse)  # Load ggplot2, dplyr, and all the other tidyverse packages
@@ -41,11 +25,10 @@ library(janitor)
 library(vroom)
 library(tidyquant)
 ```
-# 2016 California Contributors plots
-```{r challenge2, echo=FALSE, out.width="100%"}
-#We want to reproduce a picture like this
-knitr::include_graphics(here::here("images", "challenge2.png"), error = FALSE)
-```
+
+# Context 
+
+During the 2016 U.S presidential selection, candidates have raised much money in California. We want to know what's the top 10 cities for top 10 candidates. Does the candidate that raises most money finally win selection?
 
 Firstly, we import patchwork, use vroom() to load data and join two datasets.
 
@@ -146,7 +129,11 @@ top10_plotS <- CA_contributors_2016_cleaned %>%
                 scale_y_continuous(expand = c(0,0))+ 
                 labs(title = "Top 10 candidates ranked by money raised",x=NULL,y=NULL)+
                           
-                          theme_economist(base_size = 10)
+                          theme_economist()
 top10_plotS
 
-```  
+```
+
+# Conclusion 
+
+All candidates almost raise the most money from both Los Angeles and San Francisco. That makes sense because they're the top 2 cities in CA. Another interesting point to notice here, is our final winner Donald Trump raised money from some unfamous cities.

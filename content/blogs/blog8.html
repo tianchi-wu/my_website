@@ -13,6 +13,10 @@ title: IMDB Ratings Differences between Directors
 
 
 
+<div id="context" class="section level1">
+<h1>Context</h1>
+<p>Do you like Spielberg more or Burton more?
+Let’s look at the average IMDB ratings for Steven Spielberg and Tim Burton and analyze whether they are significantly different from each other.</p>
 <pre class="r"><code>library(tidyverse)  # Load ggplot2, dplyr, and all the other tidyverse packages
 library(mosaic)
 library(ggthemes)
@@ -25,7 +29,6 @@ library(broom)
 library(tidyquant)
 library(infer)
 library(openintro)</code></pre>
-<p>Lets look at the average ratings for Steven Spielberg and Tim Burton and analyse whether they are significantly different from each other.</p>
 <pre class="r"><code>movies &lt;- read_csv(here::here(&quot;data&quot;, &quot;movies.csv&quot;))
 glimpse(movies)</code></pre>
 <pre><code>## Rows: 2,961
@@ -121,4 +124,9 @@ p_value   </code></pre>
 ##   p_value
 ##     &lt;dbl&gt;
 ## 1   0.004</code></pre>
+</div>
+<div id="conclusion" class="section level1">
+<h1>Conclusion</h1>
 <p>When we use the infer package to simulate from a null distribution we get a p-value of 0.004 &lt; 0.05, therefore we can conclude that the difference in our sample is not zero and there is significant difference in mean ratings of movies by the two directors.</p>
+<p>Spielberg, you’re a better director, at least for IMDB users.</p>
+</div>

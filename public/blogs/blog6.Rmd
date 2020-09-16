@@ -11,6 +11,9 @@ slug: blog6
 title: 2015 - 2020 TfL Bike Rentals Weekly Change 
 ---
 
+# Context
+
+We have the data from TfL bike rentals from 2015 to 2020. And we want to see what's the weekly excess or lack compared to expected number for the whole year.
 
 ```{r, setup, include=FALSE}
 knitr::opts_chunk$set(
@@ -108,6 +111,7 @@ geom_ribbon(aes(ymin = bike_filtered$average_hire , ymax = bike_filtered$bikes_h
 p
 ```
 
+Then we filter to weekly change and use ggribbon to see weekly excess or lack.
 ```{r tfl_percentage_weekly_change_code}
 
 ##first we need to filter our database to have only years >= 2015
@@ -141,6 +145,8 @@ mutate(weekly_change_per = (bikes_hired - weekly_average)/weekly_average)%>%
 
 
 ```
+
+A really tricky point here is we use two ggribbons to make the plot. One for excess above the expected line, the other for lack below the expected line.
 
 ```{r}
 
@@ -178,5 +184,7 @@ p_week
 
 ```
 
+# Conclusion
 
+We could see among the five years, the first half of 2020 has the highest votality  in weekly change. And mostly downwards change. This is due to COVID-19 pandemic force people to stay home.
 
