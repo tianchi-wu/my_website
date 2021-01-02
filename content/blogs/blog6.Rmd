@@ -1,21 +1,19 @@
 ---
-categories:
-- ""
-- ""
-date: "2020-9-15"
-description: Have a view of weekly change TfL bike rentals from 2015-2020, which year has the largest volatilty?
-draft: false
-image: blog06.png
-keywords: ""
-slug: blog6
-title: 2015 - 2020 TfL Bike Rentals Weekly Change 
+title: "LendingClub Loans Default Prediction"
+author: "Tianchi Wu"
+output:
+  html_document:
+    theme: cerulean
+    highlight: zenburn
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
 ---
 
-# Context
 
-We have the data from TfL bike rentals from 2015 to 2020. And we want to see what's the weekly excess or lack compared to expected number for the whole year.
-
-```{r, setup, include=FALSE}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   message = FALSE, 
   warning = FALSE, 
@@ -32,159 +30,565 @@ knitr::opts_chunk$set(
 ```
 
 
-```{r load-libraries, include=FALSE}
-library(tidyverse)  # Load ggplot2, dplyr, and all the other tidyverse packages
-library(mosaic)
-library(ggthemes)
-library(lubridate)
-library(here)
-library(skimr)
-library(janitor)
-library(httr)
-library(readxl)
-library(vroom)
+```{r, load_libraries, include = FALSE}
+library(tidyverse) # the usual stuff: dplyr, readr, and other goodies
+library(lubridate) # to handle dates
+library(GGally) # for correlation-scatter plot matrix
+library(ggfortify) # to produce residual diagnostic plots
+library(rsample) # to split dataframe in training- & testing sets
+library(janitor) # clean_names()
+library(broom) # use broom:augment() to get tidy table with regression output, residuals, etc
+library(huxtable) # to get summary table of all models produced
+library(caret) # to train more advanced models (k-fold cross-validation, stepwise regression, LASSO)
+library(nnet) # to calculate the maximum value of a vector
+library(pROC) # to plot ROC curves
+library(MLmetrics) #for caret LASSO logistic regression
+library(glmnet)
+
 ```
 
 
-Recall the TfL data on how many bikes were hired every single day. We can get the latest data by running the following
+## Load the data
 
-```{r, get_tfl_data, cache=TRUE}
-url <- "https://data.london.gov.uk/download/number-bicycle-hires/ac29363e-e0cb-47cc-a97a-e216d900a6b0/tfl-daily-cycle-hires.xlsx"
+First we need to start by loading the data.
+```{r, load_data, warning=FALSE, message=FALSE}
 
-# Download TFL data to temporary file
-httr::GET(url, write_disk(bike.temp <- tempfile(fileext = ".xlsx")))
-
-# Use read_excel to read it as dataframe
-bike0 <- read_excel(bike.temp,
-                   sheet = "Data",
-                   range = cell_cols("A:B"))
-
-# change dates to get year, month, and week
-bike <- bike0 %>% 
-  clean_names() %>% 
-  rename (bikes_hired = number_of_bicycle_hires) %>% 
-  mutate (year = year(day),
-          month = lubridate::month(day, label = TRUE),
-          week = isoweek(day))
+lc_raw <- read_csv("LendingClub Data.csv",  skip=1) %>%  #since the first row is a title we want to skip it. 
+  clean_names() # use janitor::clean_names()
 ```
 
+# ICE the data: Inspect, Clean, Explore
 
-We can easily create a facet grid that plots bikes hired by month and year.
+Any data science engagement starts with ICE. Inspecting, Clean and Explore the data. 
 
-We also like to create one which looks at percentage changes from the expected level of weekly rentals. We use two grey shaded rectangles that correspond to the second (weeks 14-26) and fourth (weeks 40-52) quarters.
+## Inspect the data
 
-
-
-
-```{r tfl_absolute_monthly_change_code}
-
-#first we need to filter our database to have only years >= 2015
-bike_filtered <-
-bike %>% filter(year >= 2015)
-
-#summarizing per month - we don't need the week value, only monthly
-bike_filtered <-
-bike_filtered %>%
-group_by(year,month) %>%
-summarize(bikes_hired = mean(bikes_hired))
-
-#now we will calculate the monthly average throughout the years and save it in a new column
-bike_filtered <-
-bike_filtered %>%
-group_by(month) %>%
-mutate(average_hire = mean(bikes_hired)) %>%
-ungroup()
-
-#calculate the change from monthly average
-bike_filtered <-
-bike_filtered %>%
-mutate(change_monthlyavg = bikes_hired - average_hire)
-
-#create basic line graph of average hire (blue) and bikes hired per month (grey) faceted by year
-p <- ggplot(data = bike_filtered, aes(x = month)) +
-geom_line(aes(y = average_hire, group = 1), color = "blue") +
-geom_line(aes(y = bikes_hired, group = 1), color = "grey") +
-facet_wrap(~year) +
-#adding shadded area between both lines
-geom_ribbon(aes(ymin = bike_filtered$average_hire , ymax = bike_filtered$bikes_hired), alpha = .5, group =1)
-
-p
+Inspect the data to understand what different variables mean. Variable definitions can be found in the excel version of the data.
+```{r, Inspect}
+glimpse(lc_raw)
 ```
 
-Then we filter to weekly change and use ggribbon to see weekly excess or lack.
-```{r tfl_percentage_weekly_change_code}
+## Clean the data
+Are there any redundant columns and rows? Are all the variables in the correct format (e.g., numeric, factor, date)? Lets fix it. 
 
-##first we need to filter our database to have only years >= 2015
-bike_filtered <-
-bike %>% filter(year >= 2015)
+The variable "loan_status" contains information as to whether the loan has been repaid or charged off (i.e., defaulted). Let's create a binary factor variable for this. This variable will be the focus of this workshop.
 
-#summarizing per week
-bike_filtered <-
-bike_filtered %>%
-group_by(year,week) %>%
-summarize(bikes_hired = mean(bikes_hired))
+```{r, clean data}
+lc_clean<- lc_raw %>%
+  dplyr::select(-x20:-x80) %>% #delete empty columns
+  filter(!is.na(int_rate)) %>%   #delete empty rows
+  mutate(
+    issue_d = mdy(issue_d),  # lubridate::mdy() to fix date format
+    term = factor(term_months),     # turn 'term' into a categorical variable
+    delinq_2yrs = factor(delinq_2yrs) # turn 'delinq_2yrs' into a categorical variable
+  ) %>% 
+  mutate(default = dplyr::recode(loan_status, 
+                      "Charged Off" = "1", 
+                      "Fully Paid" = "0"))%>%
+    mutate(default = as.factor(default)) %>%
+  dplyr::select(-emp_title,-installment, -term_months, everything()) #move some not-so-important variables to the end. 
+```
 
-#now we will calculate the weekly average throughout the years and save it in a new column
-bike_filtered <-
-bike_filtered %>%
-group_by(week) %>%
-mutate(weekly_average = mean(bikes_hired)) %>%
-ungroup()
+## Explore the data
 
-#calculate the change from weekly average
-bike_filtered<-
-bike_filtered %>%
-mutate(weekly_change_per = (bikes_hired - weekly_average)/weekly_average)%>%
+Let's explore loan defaults by creating different visualizations. We start with examining how prevalent defaults are, whether the default rate changes by loan grade or number of delinquencies, and a couple of scatter plots of defaults against loan amount and income.
+
+
+```{r, visualization of defaults, warning=FALSE}
+#bar chart of defaults
+def_vis1<-ggplot(data=lc_clean, aes(x=default)) +geom_bar(aes(y = (..count..)/sum(..count..))) + labs(x="Default, 1=Yes, 0=No", y="relative frequencies") +scale_y_continuous(labels=scales::percent) +geom_text(aes( label = scales::percent((..count..)/sum(..count..) ),y=(..count..)/sum(..count..) ), stat= "count",vjust=-0.5) 
+def_vis1
+
+#bar chart of defaults per loan grade
+def_vis2<-ggplot(data=lc_clean, aes(x=default), group=grade) +geom_bar(aes(y = (..count..)/sum(..count..), fill = factor(..x..)), stat="count")  + labs(title="Defaults by Grade", x="Default, 1=Yes, 0=No", y="relative frequencies") +scale_y_continuous(labels=scales::percent) +facet_grid(~grade) + theme(legend.position = "none") +geom_text(aes( label = scales::percent((..count..)/sum(..count..) ),y=(..count..)/sum(..count..) ), stat= "count",vjust=-0.5) 
+def_vis2
+
+#bar chart of defaults per number of Delinquencies
+def_vis3<-lc_clean %>%
+  filter(as.numeric(delinq_2yrs)<4) %>%
+  ggplot(aes(x=default), group=delinq_2yrs) +geom_bar(aes(y = (..count..)/sum(..count..), fill = factor(..x..)), stat="count")  + labs(title="Defaults by Number of Delinquencies", x="Default, 1=Yes, 0=No", y="relative frequencies")  +scale_y_continuous(labels=scales::percent) +facet_grid(~delinq_2yrs) + theme(legend.position = "none") +geom_text(aes( label = scales::percent((..count..)/sum(..count..) ),y=(..count..)/sum(..count..) ), stat= "count",vjust=-0.5)
+
+def_vis3
+
+#scatter plots 
+
+#We select 2000 random loans to display only to make the display less busy. 
+set.seed(1234)
+reduced<-lc_clean[sample(0:nrow(lc_clean), 2000, replace = FALSE),]%>%
+  mutate(default=as.numeric(default)-1) # also convert default to a numeric {0,1} to make it easier to plot.
+
+          
+# scatter plot of defaults against loan amount                         
+def_vis4<-ggplot(data=reduced, aes(y=default,x=I(loan_amnt/1000)))  + labs(y="Default, 1=Yes, 0=No", x="Loan Amnt (1000 $)") +geom_jitter(width=0, height=0.05, alpha=0.7) #We use jitter to offset the display of defaults/non-defaults to make the data easier to interpert. We have also changed the amount to 1000$ to reduce the number of zeros on the horizontal axis.
+
+def_vis4
+
+#scatter plot of defaults against loan amount.
+def_vis5<-ggplot(data=reduced, aes(y=default,x=I(annual_inc/1000)))   + labs(y="Default, 1=Yes, 0=No", x="Annual Income(1000 $)") +geom_jitter(width=0, height=0.05, alpha=0.7) +  xlim(0,400)
+
+def_vis5
+
+```
+
+We can also estimate a correlation table between defaults and other continuous variables.
+
+```{r, correlation table, warning=FALSE, message=FALSE}
+
+# correlation table using GGally::ggcor()
+# this takes a while to plot
+
+lc_clean %>% 
+    mutate(default=as.numeric(default)-1)%>%
+  select(loan_amnt, dti, annual_inc, default) %>% #keep Y variable last
+ ggcorr(method = c("pairwise", "pearson"), label_round=2, label = TRUE)
+
+```
+
  
-#make a new column "tag" to colorize shapes depending on whether change is above or below expected level
-  mutate(tags = ifelse(weekly_change_per>=0, "Above", "Below")) %>% 
+```{r}
+# My visualization
+lc_clean %>% ggplot(aes( x = int_rate, fill  = default)) + geom_histogram(bins= 10)
 
-#make a new column "week_shade" to colorize the background.
-  mutate(week_shade = if_else(week <=13|week>=26&week<=39,"white","grey"))
+
+```
+
+We have already explored relationships between default with loan amount and annual income. Here I made another histogram to find out whether interest rate will effect default. It seems from this graph that, when interest rates are higher than 0.15, the percentage of default increases.
+
+# Linear vs. logistic regression for binary response variables
+
+It is certainly possible to use the OLS approach to find the line that minimizes the sum of square errors when the dependent variable is binary (i.e., default no default). In this case, the predicted values take the interpretation of a probability. We can also estimate a logistic regression instead. We do both below.
+
+
+```{r, linear and logisitc regression with binary response variable, warning=FALSE}
+
+model_lm<-lm(as.numeric(default)~I(annual_inc/1000), lc_clean)
+summary(model_lm)
+
+
+logistic1<-glm(default~I(annual_inc/1000), family="binomial", lc_clean)
+summary(logistic1)
+
+
+ggplot(data=reduced, aes(x=I(annual_inc/1000), y=default)) + geom_smooth(method="lm", se=0, aes(color="OLS"))+ geom_smooth(method = "glm", method.args = list(family = "binomial"),  se=0, aes(color="Logistic"))+ labs(y="Prob of Default", x="Annual Income(1000 $)")+  xlim(0,450)+scale_y_continuous(labels=scales::percent)+geom_jitter(width=0, height=0.05, alpha=0.7) + scale_colour_manual(name="Fitted Model", values=c("blue", "red"))
+
 
 
 
 ```
 
-A really tricky point here is we use two ggribbons to make the plot. One for excess above the expected line, the other for lack below the expected line.
+
+The logistic regression is more suitable for predicting probability of default since linear regression model's line has already passed through zero - means that an individual having more than 350,000 annual income would have a negative probability of default, which goes against the reality apparently.
+
+# Multivariate logistic regression
+
+We can estimate logistic regression with multiple explanatory variables as well. Let's use annual_inc, term, grade, and loan amount as features. Let's call this model logistic 2.
+
+```{r}
+logistic2<- glm(default~I(annual_inc/1000) + term + grade + loan_amnt, family="binomial", lc_clean)
+summary(logistic2)
+
+#compare the fit of logistic 1 and logistic 2
+anova(logistic1,logistic2)
+
+```
+
+
+a. Estimated coefficient is the extent that the default probability of the loan will change if our selected variables change one unit(for numeric variables) or fall into one category(for categorical variables). For example, if lender's annual income increase $1,000, the default probability will decrease 0.602%.
+
+b. It is a measure of the precision with which our regression coefficient is measured. If we have a lower se of one coefficient, we have a more precised prediction of that coefficient.
+
+c. If p value of one coefficient is lower than 0.05, it means that this variable is significant. Here we could conclude that all the variables we put except loan_amnt are significant in our model.
+
+d. Deviance is a method to measure the in-sample-goodness-of-fit of our two models. Here we have a lower deviance in logistics2 model, meaning it is doing better in in-sample-fit, without taking into consideration about how many variables we put.
+
+e. AIC is similar to deviance but penalizes for number of coefficients, in some extent preventing models from overfitting. Here we also have a lower AIC for logistic2 model.
+
+f. The null deviance is the deviance of a model with only the intercept, indicating the overall change range for default probability.
+
+g. Yes, it has a lower AIC: more predictive explanation and lower variables.
+
+
+```{r}
+#Predict the probability of default
+prob_default2<-predict(logistic2, lc_clean, type= "response")
+
+#plot 1: Density of predictions
+g1 <- ggplot(lc_clean, aes(prob_default2)) +
+  geom_density(size = 1) +
+  ggtitle("Predicted Probability with Logistic 2") + 
+  xlab("Estimated Probability")
+
+#plot 2: Density of predictions by default
+g2 <- ggplot(lc_clean, aes(prob_default2, color = default )) +
+  geom_density(size = 1) +
+  ggtitle("Predicted Probability with Logistic 2") + 
+  xlab("Estimated Probability")
+
+g1
+g2
+```
+
+## From probability to classification
+
+The logistic regression model gives us a sense of how likely defaults are; it gives us a probability estimate. To convert this into a prediction, we need to choose a cutoff probability and classify every loan with a predicted probability of default above the cutoff as a prediction of default (and vice versa for loans with a predicted probability below this cutoff).
+
+Let's choose a threshold of 20%. Of course some of our predictions will turn out to be right but some will turn out to be wrong -- you can see this in the density figures of the previous section. Let's call "default" the "positive" class since this is the class we are trying to predict. We could be making two types of mistakes. False positives (i.e., predict that a loan will default when it will not) and false negatives (I.e., predict that a loan will not default when it does). These errors are summarized in the confusion matrix. 
+
+
+```{r, From probability to classification}
+library(e1071)
+#using the logistic 2 model predict default probabilities
+prob_default2<- predict(logistic2, lc_clean, type= "response")
+one_or_zero <- ifelse(prob_default2>0.18,"1","0")
+  
+#Call any loan with probability more than 18% as defualt and any loan with lower probability as non-default. Make sure your prediction is a factor with the same levels as the default variable in the lc_clean data frame
+p_class<-factor(one_or_zero, levels = levels(lc_clean$default))
+  
+#produce the confusion matrix and set default as the positive outcome
+con2<- confusionMatrix(p_class, lc_clean$default, positive = "1")
+
+#print the confusion matrix
+con2
+```
+
+
+a. Accuracy is calculated by the total number of correct predictions (both negative and positive) divided by all predictions. Here it stands for how well we predict loans that will default and did default, and loans that will not default and did not default.
+
+b. Sensitivity is calculated by the number of True Positives divided by Positives. Here means our model catches 48.1% of all the bad loans.
+
+c. Specificity is calculated by the number of True Negatives divided by Negatives. Here means our model identifies 76.1% of all the good loans.
+
+>Q7. Using the model logistic 2 produce the ROC curve and calculate the AUC measure. Explain what the ROC shows and what the AUC measure means. Why do we expect the AUC of any predictive model to be between 0.5 and 1? Could the AUC ever be below 0.5 or above 1? 
+
+```{r, ROC curves, warning=FALSE}
+#estimate the ROC curve for Logistic 2
+ROC_logistic2 <-roc(lc_clean$default, prob_default2)
+
+#estimate the AUC for Logistic 2 and round it to two decimal places
+AUC2<-round(auc(lc_clean$default, prob_default2)*100, digits = 2)
+#Plot the ROC curve and display the AUC in the title
+ROC2<- ggroc(ROC_logistic2, alpha = 0.5) +
+  ggtitle(paste("Model Logistic 2: AUC =", AUC2, "%")) +
+    geom_segment(aes(x = 1, xend = 0, y = 0, yend = 1),
+               color = "grey", linetype = "dashed") +
+    geom_segment(aes(x = 1, xend = 1, y = 0, yend = 1),
+               color = "black", linetype = "dashed") +
+    geom_segment(aes(x = 1, xend = 0, y = 1, yend = 1),
+               color = "black", linetype = "dashed")
+
+ROC2
+```
+
+The ROC shows a scatter plot of our model's sensitivity against the specificity for different cuttoff values. In our graph, for example, if we choose a cutoff value to calculate a specificity of 50%, then we could expect our sensitivity to be 75%.
+
+AUC stands for the area under the curve and can be used to measure the predictive power of the model. Its value must be between [0.5,1] since the lowest predictive power would the case of purely random chance, while the highest predictive power would be the case of 100% sensitivity, specificity and accuracy.
+
+```{r, out-of-sample ROC curve}
+# splitting the data into training and testing
+set.seed(1234)
+train_test_split <- initial_split(lc_clean, prop = 0.8)
+testing <- testing(train_test_split) #20% of the data is set aside for testing
+training <- training(train_test_split) #80% of the data is set aside for training
+
+# run logistic 2 on the training set 
+logistic2<- glm(default~I(annual_inc/1000) + term + grade + loan_amnt, family="binomial", training)
+
+#calculate probability of default in the training sample 
+p_in<-predict(logistic2, training, type= "response")
+  
+#ROC curve using in-sample predictions
+ROC_logistic2_in <- roc(training$default, p_in)
+#AUC using in-sample predictions
+AUC_logistic2_in<-round(auc(training$default, p_in)*100, digits = 2)
+  
+#calculate probability of default out of sample 
+p_out<- predict(logistic2, testing, type= "response")
+
+#ROC curve using out-of-sample predictions
+ROC_logistic2_out <- roc(testing$default, p_out)
+#AUC using out-of-sample predictions
+AUC_logistic2_out <- round(auc(testing$default, p_out)*100, digits = 2)
+#plot in the same figure both ROC curves and print the AUC of both curves in the title
+ROCin_out<- ggroc(list(In = ROC_logistic2_in, Out = ROC_logistic2_out), alpha = 0.5) +
+  ggtitle(paste("Model Logistic: AUC in =", AUC_logistic2_in,"%"," AUC out =", AUC_logistic2_out,"%")) +
+    geom_segment(aes(x = 1, xend = 0, y = 0, yend = 1),
+               color = "grey", linetype = "dashed") +
+    geom_segment(aes(x = 1, xend = 1, y = 0, yend = 1),
+               color = "black", linetype = "dashed") +
+    geom_segment(aes(x = 1, xend = 0, y = 1, yend = 1),
+               color = "black", linetype = "dashed")
+
+ROCin_out
+```
+
+
+Our AUC only decreases 0.6% when we use our model to predict out-of-sample data, so I wouldn't say there's much evidence of overfitting. 
+
+## Selecting loans to invest using the model Logistic 2.
+
+Before we look for a better model than logistic 2 let's see how we can use this model to select loans to invest. Let's make the simplistic assumption that every loan generates \$20 profit if it is paid off and \$100 loss if it is charged off for an investor. Let’s use a cut-off value to determine which loans to invest in, that is, if the predicted probability of default for a loan is below this value then we invest in that loan and not if it is above. 
+
+To do this we split the data in three parts: training, validation, and testing. Feel free to experiment with different seeds but please use the seeds provided below for your submission.
+
+```{r}
+# splitting the data into training and testing
+set.seed(1234)
+train_test_split <- initial_split(lc_clean, prop = 0.6)
+training <- training(train_test_split) #60% of the data is set aside for training
+remaining <- testing(train_test_split) #40% of the data is set aside for validation & testing
+set.seed(4321)
+train_test_split <- initial_split(remaining, prop = 0.5)
+validation<-training(train_test_split) #50% of the remaining data (20% of total data) will be used for validation
+testing<-testing(train_test_split) #50% of the remaining data (20% of total data) will be used for testing
+```
+
+
+```{r}
+# run logistic 2 on the training set 
+logistic2<- glm(default~I(annual_inc/1000) + term + grade + loan_amnt, family="binomial", training)
+#calculate probability of default in the training sample 
+p_train <-predict(logistic2, training, type= "response")
+#calculate probability of the validation set
+p_validation <- predict(logistic2, validation, type= "response")
+
+#define the parameters profit and threshold
+profit=0
+threshold=0
+#loop over 100 thresholds
+for(i in 1:100) {
+  threshold[i]=i/400 
+  one_or_zero_search<-ifelse(p_validation>threshold[i],"1","0")
+  p_class_search<-factor(one_or_zero_search,levels=levels(validation$default))
+
+  con_search<-confusionMatrix(p_class_search,validation$default,positive="1")
+  #calculate the profit associated with the threshold
+  profit[i]=con_search$table[1,1]*20-con_search$table[1,2]*100
+}
+
+data.frame(threshold = threshold * 100, profit = profit) %>% arrange(desc(profit))
+
+```
+
+
+The optimal cutoff threshold is 15.5% and generates 44840 dollars of profits. Based on the testing set, profit per loan is $5.4. 
+
+```{r}
+#Profit per loan using the testing set - apply the threshold
+
+#optimal threshold based on the validation set
+threshold=threshold[which.is.max(profit)]
+
+#Use the model estimated on the training set to predict probabilities of default on the testing set
+p_test<-predict(logistic2, testing, type = "response")
+
+#use the threshold estimated using the validation set to estimate the profits on the testing set
+one_or_zero<-ifelse(p_test>threshold,"1","0")
+p_class<-factor(one_or_zero,levels=levels(testing$default))
+con<-confusionMatrix(p_class,testing$default,positive="1")
+profit=con$table[1,1]*20-con$table[1,2]*100
+paste0("Based on the testing set the actual profit per loan is: $", round(profit/nrow(testing),2))
+```
+
+# More realistic revenue model
+
+Let’s build a more realistic profit and loss model. Each loan has different terms (e.g., different interest rate and different duration) and therefore a different return if fully paid. For example, a 36 month loan of \$5000 with installment of \$163 per month would generate a return of `163*36/5000-1` if there was no default. Let’s assume that it would generate a loss of -60% if there was a default (the loss is not 100% because the loan may not default immediately and/or the lending club may be able to recover part of the loan). 
+
+
 
 ```{r}
 
-p_week <- ggplot(data = bike_filtered, aes(x = week, y = weekly_change_per)) +  
-geom_line()+
-  
-#separately colorize shapes to perfectly match the line
-geom_ribbon(aes(ymin = 0, ymax = pmin(0,weekly_change_per), fill = "Above"), alpha=.5) + 
-geom_ribbon(aes(ymin = weekly_change_per, ymax = pmin(0,weekly_change_per), fill = "Below"), alpha=.5)+
-facet_wrap(~year)+
-  
-#not working.we don't know how to change the format of facet titles.
-theme(strip.background = element_rect(color="black", fill="blue"))+
-  
-#colorize the background 
-geom_tile(aes(fill = week_shade),
-            width = 1, height = Inf, alpha = 0.3)+ 
-  
-#colorize all the parameters we need 
-  scale_fill_manual(values = c("red","green","grey","white"))+
-  
-#add the rugs to match the weekly change 
-  geom_rug(aes(color = tags),sides="b",alpha = .5) +
-  theme_bw()+
-  scale_x_continuous(breaks=seq(13, 53, 13))+
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1),limits = c(-0.6,0.6)) + 
-  theme(axis.ticks = element_blank())+
-  theme(legend.position = "none") + 
-  theme(panel.border = element_blank())+
-  labs(x = "week", y = "", title = "Weekly changes in TfL bike rentals", subtitle = "% change from weekly averages \ncalculated between 2015-2019", caption = "Source: TfL, London Data Store")+
- coord_fixed(ratio = 25)
+#use the threshold estimated using the validation set to estimate the profits on the testing set
+one_or_zero<-ifelse(p_validation>threshold,"1","0")
+p_class<-factor(one_or_zero,levels=levels(validation$default))
+con<-confusionMatrix(p_class,validation$default,positive="1")
 
-p_week
+total_return_rate = con$table[1,1]*(validation$installment * validation$term_months/validation$loan_amnt -1) -con$table[1,2]*0.6
+average_return_rate= mean(total_return_rate/nrow(validation))
+
+#print out our result 
+sprintf("%1.2f%%", 100*average_return_rate)
+```
+
+The average return we could get for the whole 7574 loans in the validation set is 10.49%.
+
+Unfortunately, we cannot use the realized return to select loans to invest (as at the time we make the investment decision we do not know which loan will default). Instead, we can calculate an expected return using the estimated probabilities of default -- expected return = return if not default * (1-prob(default)) + return if default * prob(default). 
+
+
+
+```{r}
+# adding default probability calculated by validation set to our dataframe.
+validation$default_prob <- p_validation
+
+# adding a new column of profit calculated in the method above to our dataframe.
+validation <- validation %>% 
+  mutate(profit = (1-default_prob)*(installment * term_months - loan_amnt) - default_prob * 0.6 * loan_amnt)
+  
+# selecting the top 800 loans having the most profits. 
+
+portfolio_selected <- validation %>% 
+ arrange(desc(profit)) %>% 
+ head(800) 
+
+paste0("The total profit is when n = 800: $", round(sum(portfolio_selected$profit),2))
+```
+
+If I change the number of loans I choose to a higher level, the realized return will increase as well. The profit for n = 800 is 4340874 dollars.
+
+
+```{r}
+#loss proportion = 20%
+validation$default_prob <- p_validation
+
+validation <- validation %>% 
+  mutate(profit = (1-default_prob)*(installment * term_months - loan_amnt) - default_prob * 0.2 * loan_amnt)
+  
+portfolio_selected <- validation %>% 
+ arrange(desc(profit)) %>% 
+ head(800) 
+
+paste0("The total profit is when n = 800: $", round(sum(portfolio_selected$profit),2))
+
+
+#loss proportion = 80%
+validation$default_prob <- p_validation
+
+validation <- validation %>% 
+  mutate(profit = (1-default_prob)*(installment * term_months - loan_amnt) - default_prob * 0.8 * loan_amnt)
+  
+portfolio_selected <- validation %>% 
+ arrange(desc(profit)) %>% 
+ head(800) 
+
+paste0("The total profit is when n = 800: $", round(sum(portfolio_selected$profit),2))
+
+```
+
+From the result we could see that the higher the loss proportion, the lower return we could get from our portfolio.
+
+
+```{r}
+# my best model logistic 3:
+logistic3 <- glm(default~I(annual_inc/1000) + int_rate + term + loan_amnt*dti + grade, family="binomial", lc_clean)
+summary(logistic3)
+
+prob_default3<- predict(logistic3, lc_clean, type= "response")
+
+ROC_logistic3 <-roc(lc_clean$default, prob_default3)
+
+#estimate the AUC for Logistic 2 and round it to two decimal places
+AUC3<-round(auc(lc_clean$default, prob_default3)*100, digits = 2)
+#Plot the ROC curve and display the AUC in the title
+ROC3<- ggroc(ROC_logistic3, alpha = 0.5) +
+  ggtitle(paste("Model Logistic 3: AUC =", AUC3, "%")) +
+    geom_segment(aes(x = 1, xend = 0, y = 0, yend = 1),
+               color = "grey", linetype = "dashed") +
+    geom_segment(aes(x = 1, xend = 1, y = 0, yend = 1),
+               color = "black", linetype = "dashed") +
+    geom_segment(aes(x = 1, xend = 0, y = 1, yend = 1),
+               color = "black", linetype = "dashed")
+
+ROC3
+
+# compare logistic 3's in-sample and out-of-sample performance 
+# splitting the data into training and testing
+set.seed(1234)
+train_test_split <- initial_split(lc_clean, prop = 0.8)
+testing <- testing(train_test_split) #20% of the data is set aside for testing
+training <- training(train_test_split) #80% of the data is set aside for training
+
+# run logistic 3 on the training set 
+logistic3<- glm(default~I(annual_inc/1000) + term + int_rate + grade + loan_amnt*dti, family="binomial", training)
+
+#calculate probability of default in the training sample 
+p_in<-predict(logistic3, training, type= "response")
+  
+#ROC curve using in-sample predictions
+ROC_logistic3_in <- roc(training$default, p_in)
+#AUC using in-sample predictions
+AUC_logistic3_in<-round(auc(training$default, p_in)*100, digits = 2)
+  
+#calculate probability of default out of sample 
+p_out<- predict(logistic3, testing, type= "response")
+
+#ROC curve using out-of-sample predictions
+ROC_logistic3_out <- roc(testing$default, p_out)
+#AUC using out-of-sample predictions
+AUC_logistic3_out <- round(auc(testing$default, p_out)*100, digits = 2)
+#plot in the same figure both ROC curves and print the AUC of both curves in the title
+ROCin_out_2<- ggroc(list(In = ROC_logistic3_in, Out = ROC_logistic3_out), alpha = 0.5) +
+  ggtitle(paste("Model Logistic: AUC in =", AUC_logistic3_in,"%"," AUC out =", AUC_logistic3_out,"%")) +
+    geom_segment(aes(x = 1, xend = 0, y = 0, yend = 1),
+               color = "grey", linetype = "dashed") +
+    geom_segment(aes(x = 1, xend = 1, y = 0, yend = 1),
+               color = "black", linetype = "dashed") +
+    geom_segment(aes(x = 1, xend = 0, y = 1, yend = 1),
+               color = "black", linetype = "dashed")
+
+ROCin_out_2
 
 
 ```
 
-# Conclusion
 
-We could see among the five years, the first half of 2020 has the highest votality  in weekly change. And mostly downwards change. This is due to COVID-19 pandemic force people to stay home.
+I chose my best model as logistic 3, still on the basis of a logistic regression. I add another significant feature as int_rate and since loan_amnt itself isn't significant in our previous models, I tried to find some interaction around it to make better results. So I add another interaction variable to loan_amnt, since I think it will make sense to assume different loan amount would be loaned if there's a difference in our client's dti. This interaction turns out to be significant, too. Then I plot the ROC for my best model, estimate in-sample and out-of-sample AUCs and here is a brief summary:
+
+Compared to our previous logistic 2 model, my best model logistic 3 has:
+
+a. My model has a lower AIC: 29250 compared to 29306.
+b. My model has a higher in-sample AUC 68.28%, compared to 68.13%.
+c. My model has a higher out-of-sample AUC 67.76%, compared to 67.51%.
+
+Then I could conclude my model is better than model logistic 2. 
+
+
+```{r}
+lc_assessment<- read_csv("Assessment Data_2020.csv") %>%  #load the data 
+  clean_names() %>% # use janitor::clean_names() 
+  mutate(
+    issue_d = mdy(issue_d),  # lubridate::mdy() to fix date format
+    term = factor(term_months),     # turn 'term' into a categorical variable
+    delinq_2yrs = factor(delinq_2yrs)) # turn 'delinq_2yrs' into a categorical variable
+
+# splitting the data into training and testing
+set.seed(1234)
+train_test_split <- initial_split(lc_assessment, prop = 0.6)
+training <- training(train_test_split) #60% of the data is set aside for training
+remaining <- testing(train_test_split) #40% of the data is set aside for validation & testing
+set.seed(4321)
+train_test_split <- initial_split(remaining, prop = 0.5)
+validation<-training(train_test_split) #50% of the remaining data (20% of total data) will be used for validation
+testing<-testing(train_test_split) #50% of the remaining data (20% of total data) will be used for testing
+
+#calculate probability of the validation set
+p_validation <- predict(logistic3, validation, type= "response")
+
+# adding default probability calculated by validation set to our dataframe.
+validation$default_prob <- p_validation
+
+# adding a new column of profit calculated in the method above to our dataframe.
+validation <- validation %>% 
+  mutate(profit = (1-default_prob)*(installment * term_months - loan_amnt) - default_prob * 0.6* loan_amnt)
+  
+# selecting the top 200 loans having the most profits. 
+portfolio_selected <- validation %>% 
+ arrange(desc(profit)) %>% 
+ head(200) 
+
+# filter the assessment csv using the loan number of portfolio selected 
+lc_assessment <- lc_assessment %>% 
+ mutate(tianchi_wu = case_when(
+      loan_number %in% portfolio_selected$loan_number ~ 1,
+      TRUE ~ 0
+  )
+)
+# wrap up our final file 
+tianchi_wu <- lc_assessment %>% 
+ select(loan_number, tianchi_wu)
+ write.csv(tianchi_wu,"tianchi_wu.csv",row.names = FALSE)
+```
+
+
+
+
+
 

@@ -1,20 +1,17 @@
 ---
-categories:
-- ""
-- ""
-date: "2020-9-15"
-description: Is there a rating difference between Steven Spielbergs and Tim Burton?
-draft: false
-image: blog08.png
-keywords: ""
-slug: blog8
-title: IMDB Ratings Differences between Directors  
+title: "Stop and Search in London Visualization"
+author: "Tianchi Wu"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: flatly
+    highlight: zenburn
+    number_sections: true
+    toc: yes
+    toc_float: yes
 ---
-# Context
-Do you like Spielberg more or Burton more?
-Let's look at the average IMDB ratings for Steven Spielberg and Tim Burton and analyze whether they are significantly different from each other.
 
-```{r, setup, echo=FALSE}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   message = FALSE, 
   warning = FALSE, 
@@ -30,109 +27,419 @@ knitr::opts_chunk$set(
 )
 ```
 
-
-```{r load-libraries}
-library(tidyverse)  # Load ggplot2, dplyr, and all the other tidyverse packages
-library(mosaic)
-library(ggthemes)
-library(GGally)
-library(readxl)
-library(here)
+```{r libraries, include=FALSE}
+library(tidyverse)
+library(extrafont)
+library(vroom)
+library(ggtext)
+library(gapminder)
+library(ggrepel)
+library(patchwork)
+library(gghighlight)
 library(skimr)
+library(sf) # for geospatial visualisation
+library(leaflet)
+loadfonts(device="win")
+library(ggmap)
+library(lubridate)
 library(janitor)
-library(broom)
-library(tidyquant)
-library(infer)
-library(openintro)
+library(ggridges)
+library(gghalves)
+library(patchwork)
+library(ggpubr)
 ```
 
 
+# Context 
+According to the Metropolitan Police(the Met), the main reason they use stop and 
+search in London is to "allow officers to investigate their suspicions about an 
+individual without having to arrest them." [source](https://www.met.police.uk/advice/advice-and-information/st-s/stop-and-search/how-we-use-stop-and-search/)
+
+Our concern is:
+* Does the Met conduct effective stop and searches, i.e. detecting real criminal
+suspects from these actions? 
+* Does the Met conduct fair stop and searches regarding objects' gender?
+* What is the geographical distribution of stop and search? Does the Met have a 
+target locaiton?
+
+We'll do some interesting data visualization to find out, using Metropolitan 
+Police stop and search data in Sep 2020.[source](https://data.police.uk/data/)
+
+# Efficiency of stop and searches 
+```{r}
+#import the data 
+stop_and_search <- read.csv("stop-and-search.csv", header = TRUE)
+
+#firstly look at the data 
+skim(stop_and_search)
 
 
-```{r read_data}
+#define color to use 
+my_colours <- c("red", "red", "orange")
 
-movies <- read_csv(here::here("data", "movies.csv"))
-glimpse(movies)
+#use column Outcome to define the effectiveness of a single stop and search. If we arrest the object, it would be defined as a very effective s&s. If we have no further action, it would be defined as ineffective.
+stop_and_search <- stop_and_search %>% 
+  mutate(
+    outcome_effectiveness = case_when(
+      Outcome == "Arrest" ~ "Really Arrested the object",
+      Outcome == "A no further action disposal" ~ "Did no action at all",
+      TRUE ~ "Made some penalties")) %>% 
+  mutate(outcome_effectiveness = factor(outcome_effectiveness, 
+                                         levels = c("Really Arrested the object","Made some penalties","Did no action at all"), ordered=TRUE))
 
+#make barplots and use orange versus red to emphasize the contrast 
+p1<- ggplot(stop_and_search, aes(y = outcome_effectiveness, fill = outcome_effectiveness)) +
+  geom_bar() +
+  scale_fill_manual(values = my_colours)+
+  theme_minimal() +
+  theme(
+    axis.title.y = element_blank(), 
+    legend.position = "none",
+    text = element_text(size=15, family = "Oswald"),
+    plot.title = element_text(hjust = -4, vjust=2.12),
+    plot.subtitle = element_text(hjust = -0.8, vjust=2.12,size = 12)
+    ) +
+ labs(
+  title = "The Met Did Nothing after Most Stops and Searches",
+  subtitle = "After each London stop and search in Sep 2020, the Police  ",
+  x = "number of stop and seaches")
+
+p1
 ```
 
-The hypotheses are as stated below:
-
-Null hypothesis (H0) = The mean IMDB ratings for Steven Spielberg and Tim Burton are equal, i.e. the difference between the two means = 0 Alternate hypothesis (H1) = The mean IMDB ratings for Steven Spielberg and Tim Burton are not equal, i.e. they are significantly different
- The first thing you need to do is to tidy the data, as it is in wide format and you must make it into long, tidy format. Please express all figures in billions (divide values by `1e9`, or $10^9$), and you want to rename the indicators into something shorter.
-
+# Equality of stop and searches. 
 
 ```{r}
-selected_directors_statistic <- movies %>% 
-  #filtering dataframe to only include Spielberg and Burton
-  filter(director == "Steven Spielberg" | director == "Tim Burton") %>% 
-  group_by(director) %>% 
-  summarise(mean = mean(rating), sd = sd(rating), count = n(), se = sd / sqrt(count), t_critical = qt(0.975, count - 1),
-            lower_ci = mean - t_critical * se, upper_ci = mean + t_critical * se, rating = rating) 
+#I decide to use officer defined ethnicity since it is more general and succinct.
+#There are some meaningless spaces in ehnicity so I only choose clear four groups we want to analyse.
+stop_and_search_cleaned <- stop_and_search %>% 
+  filter(Officer.defined.ethnicity == "White"| 
+         Officer.defined.ethnicity == "Black"|
+         Officer.defined.ethnicity =="Asian"|
+         Officer.defined.ethnicity =="Other") %>% 
+  mutate(Officer.defined.ethnicity = factor(Officer.defined.ethnicity,
+        levels = c("Black", "White", "Asian", "Other"), ordered = TRUE))
 
-#Creating the t-statistic
-t_statistic <- t.test(rating ~ director, data = selected_directors_statistic)
-t_statistic
+#we first use barplots to look at distribution of ethnicity
+p2<- ggplot(stop_and_search_cleaned, aes(x = Officer.defined.ethnicity)) +
+  geom_bar() +
+  scale_fill_manual(values = my_colours)+
+  theme_minimal() +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(), 
+    legend.position = "none",
+    text = element_text(size=15, family = "Oswald"),
+    plot.title = element_text(hjust = -0.1, vjust=2.12),
+    plot.subtitle = element_text(hjust = -0, vjust=2.12,size = 12)
+    ) +
+ labs(
+  title = "The Met Seems to Choose White and Black More as Targets",
+  subtitle = "Number of stop and searches in ethnicity groups in Sep 2020")
+
+p2
 ```
 
-Since the t-statistic value is > 2 and p-value < 0.05 (alpha), we reject the null hypothesis and conclude that mean IMDB ratings for Steven Spielberg and Tim Burton are significantly different.
+It seems that the Met tends to choose White and Black more as their stop and search targets, but is that really the case? Because different ethnicity groups have different population in London, so I want to normalize them by dividing a population efficient. 
 
-
-
-```{r gdp1,  out.width="100%"}
-#selecting spielberg and burton
-selected_directors <- movies %>% 
-  filter(director == "Steven Spielberg" | director == "Tim Burton") %>% 
-  group_by(director) %>% 
-  summarise(mean = mean(rating), sd = sd(rating), count = n(), se = sd / sqrt(count), t_critical = qt(0.975, count - 1),
-            lower_ci = mean - t_critical * se, upper_ci = mean + t_critical * se) 
-
-#plotting the convidence intervals of both movies
-imdb_spielberg_and_burton <- ggplot(selected_directors, aes(x = mean, y = reorder(director, mean))) +
-  geom_rect(xmin = 7.27, xmax = 7.33, ymin = 0, ymax = 10, fill = "grey", aes(alpha = 0.5)) +
-  geom_point(size = 3, shape = 16) +
-  geom_text(aes(label = round(mean, 2)), size = 5, hjust = 0.4, vjust = -1) +
-  geom_errorbar(aes(xmin = lower_ci, xmax = upper_ci, colour = director, fill = director), width = 0.2, size = 1.5) +
-  scale_fill_manual(values = c("#FA8072", "#48D1CC")) +
-  geom_text(aes(label = round(lower_ci, 2)), hjust = 4, vjust = - 1) +
-  geom_text(aes(label = round(upper_ci, 2)), hjust = - 4, vjust = - 1) +
-  theme_bw() +
-  theme(legend.position = "none") +
-  ggtitle("Do Spielberg and Burton have the same IMDB ratings") +
-  theme(plot.title = element_text(face = "bold")) +
-  labs(subtitle = "95% confidence intervals overlap", x = "Mean IMDB ratings", y = "") +
-  theme(aspect.ratio=3/5) 
-
-imdb_spielberg_and_burton
-```
-
-Since there is an overlap in the confidence intervals for both directors, we reject the null hypothesis in favour of the alternate hypothesis i.e. there is a significant difference in the mean ratings of Steven Spielberg and Tim Burton.
-
-We now use the infer() package to simulate from a null distribution where we assume that the means are equal.
 ```{r}
-obs_diff_mean <- selected_directors_statistic %>% 
-    specify(rating ~ director) %>% 
-    calculate(stat = "diff in means", order = c("Steven Spielberg", "Tim Burton"))
-obs_diff_mean
-set.seed(1234)
 
-ratings_in_null_world <- selected_directors_statistic %>% 
-  specify(rating ~ director) %>% 
-  hypothesise(null = "independence") %>% 
-  generate(rep = 1000, type = "permute") %>% 
-  calculate(stat = "diff in means", order = c("Steven Spielberg", "Tim Burton"))
 
-visualise(ratings_in_null_world, bins = 10) +
-  shade_p_value(obs_stat = obs_diff_mean, direction = "both") +
-  theme_bw()
+#from https://worldpopulationreview.com/world-cities/london-population I get the ethnicity percentage in London: White = 59.8%, Asian = 18.5%, Black = 13.3%, Other = 8.4%
+
+#count for each ethnicity group's number and add a new varibale of a population efficient.
+stop_and_search_ethnicity <- stop_and_search_cleaned %>% 
+  count(Officer.defined.ethnicity) %>% 
+  mutate(pop_coef = 0) 
+stop_and_search_ethnicity$pop_coef = case_when(    
+stop_and_search_ethnicity$Officer.defined.ethnicity == "White" ~ 59.8,
+stop_and_search_ethnicity$Officer.defined.ethnicity == "Asian" ~ 18.5,
+stop_and_search_ethnicity$Officer.defined.ethnicity == "Black" ~ 13.3,
+    TRUE ~ 8.4 )
+
+ss_eth_normalized <- stop_and_search_ethnicity %>% 
+  mutate(normalized_count = n/pop_coef) %>% 
+  arrange(desc(normalized_count))
+
+# Then we use the data normalized by population coefficient to figure out the real case.
+
+my_colours_2 <- c("tomato", "grey", "grey", "grey")
+p3 <- ggplot(ss_eth_normalized, aes(x = Officer.defined.ethnicity, y = normalized_count, fill = Officer.defined.ethnicity)) +
+  geom_col() +
+  scale_fill_manual(values = my_colours_2)+
+  theme_minimal() +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(), 
+    legend.position = "none",
+    text = element_text(size=15, family = "Oswald"),
+    plot.title = element_text(hjust = -0.1, vjust=2.12),
+    plot.subtitle = element_text(hjust = -0.11, vjust=2.12,size = 12)
+    ) +
+ labs(
+  title = "The Met Actullay Only Focus More on Black as Targets",
+  subtitle = "Number of stop and searches if ethnicity groups all have the same 1% of London population")
+
+p3
+
 ```
-We use p-value to make conclusion.
+
+# Geographical location of stops and searches.
+
 ```{r}
-p_value <- ratings_in_null_world %>% 
-  get_p_value(obs_stat = obs_diff_mean, direction = "both")
-p_value   
-```
-# Conclusion
-When we use the infer package to simulate from a null distribution we get a p-value of 0.004 < 0.05, therefore we can conclude that the difference in our sample is not zero and there is significant difference in mean ratings of movies by the two directors.
 
-Spielberg, you're a better director, at least for IMDB users.
+#drop the NAs in Latitude and Longitude 
+
+stop_and_search_location <- stop_and_search %>% 
+  drop_na(Latitude, Longitude) %>% 
+  filter(Outcome == "Arrest")
+
+
+#since we have the longitude and latitude of all stop and search, I decide to use the leaflet to plot the geo locations of all stop and searches. 
+leaflet(data = stop_and_search_location) %>% 
+  addProviderTiles("OpenStreetMap.Mapnik") %>% 
+  addCircleMarkers(lng = ~Longitude, 
+                   lat = ~Latitude, 
+                   radius = 1, 
+                   fillColor = "red", 
+                   fillOpacity = 0.2, 
+                   popup = ~Age.range,
+                   label = ~Officer.defined.ethnicity)
+```
+
+
+# Part 2
+
+We'll use data of London stop and search ranging from Oct 2017 to Sep 2020 and make some geographical visualizations.
+
+And since we're already very familiar with the term, I'll use "S&S" to replace "Stop and Search" for easy use. 
+
+# Read Files and Data Wrangling 
+
+```{r}
+# read many CSV files
+data_dir <- "data/stop-search"
+
+files <- fs::dir_ls(path = data_dir, regexp = "\\.csv$", recurse = TRUE) 
+
+#read them all in using vroom::vroom()
+stop_search_data <- vroom(files, id = "source")
+
+#read them all in using vroom::vroom()
+stop_search_data <- vroom(files, id = "source")
+
+# Use janitor to clean names, and add more variables
+stop_search_all <- stop_search_data %>%
+  janitor::clean_names() %>% 
+  mutate(month = month(date),
+         month_name = month(date, label=TRUE, abbr = TRUE),
+         year= year(date),
+         month_year = paste0(year, "-",month)
+  ) %>% 
+
+# rename longitude/latitude to lng/lat
+rename(lng = longitude,
+       lat = latitude)
+  
+# skimr::skim() to inspect and get a feel for the data         
+skim(stop_search_all)
+
+# concentrate in top  searches, age_ranges, and officer defined ethnicities
+which_searches <- c("Controlled drugs", "Offensive weapons","Stolen goods" )
+which_ages <- c("10-17", "18-24","25-34", "over 34")
+which_ethnicity <- c("White", "Black", "Asian")
+
+stop_search_offence <- stop_search_all %>% 
+  
+  # filter out those stop-and-search where no further action was taken
+  filter(outcome != "A no further action disposal") %>% 
+  
+  #filter out those rows with no latitude/longitude
+  drop_na(lng,lat) %>% 
+  
+  # concentrate in top searches, age_ranges, and officer defined ethnicities
+  filter(object_of_search %in% which_searches) %>% 
+  filter(age_range %in% which_ages) %>% 
+  filter(officer_defined_ethnicity %in% which_ethnicity) %>% 
+  
+  # relevel factors so everything appears in correct order
+  mutate(
+    object_of_search = fct_relevel(object_of_search, 
+                                   c("Controlled drugs", "Offensive weapons","Stolen goods")), 
+    age_range = fct_relevel(age_range, 
+                            c("10-17", "18-24", "25-34", "over 34")), 
+    officer_defined_ethnicity = fct_relevel(officer_defined_ethnicity, 
+                                            c("White", "Black", "Asian"))
+  )
+
+# according to later visualization making, we notice a highly abnormal geo location in one observation. We decided to remove it:
+
+stop_search_offence <- stop_search_offence %>% 
+  filter(lat < 52 & lng >-0.6)
+
+# make it a shape file using WGS84 lng/lat coordinates
+stop_search_offence_sf <-  st_as_sf(stop_search_offence, 
+                              coords=c('lng', 'lat'), 
+                              crs = 4326)
+
+st_geometry(stop_search_offence_sf) # what is the geometry ?
+# stop_search_offence_sf = geographic CRS: WGS 84
+
+# make sure you have the same direcory stucture to get London wards shapefile
+london_wards_sf <- read_sf(here::here("data/London-wards-2018_ESRI","London_Ward.shp"))
+
+st_geometry(london_wards_sf)
+# london_wards_sf = projected CRS:  OSGB 1936 / British National Grid
+
+# change the CRS to use WGS84 lng/lat pairs
+london_wgs84 <-  london_wards_sf %>% 
+  st_transform(4326) # transform CRS to WGS84, latitude/longitude
+
+st_geometry(london_wgs84) 
+```
+
+# Demographic Distribution
+
+Since we have a much larger dataset, now I want to look at the age and gender distribution of objects of stops and searches. 
+
+```{r}
+# pyramid histograms 
+ss_demo <- stop_search_offence %>% 
+  drop_na(gender, age_range) %>% 
+  filter(gender != "Other") %>% 
+  group_by(gender, age_range) %>% 
+  summarize(total = n())
+
+p1 <- ggplot(ss_demo,
+       aes(y = age_range,
+           x = ifelse(gender == "Male", 
+                      total, -total),
+           fill = gender)) +
+  geom_col(width = 1, color = "white")+
+  xlab("Number of S&S")+
+  ylab("Age")+
+  labs(
+  title = "Young Men Are the Largest Targets",
+  subtitle = "S&S demographic distribution in London",
+  fill = "Gender")+
+  theme_minimal()+
+  theme(text = element_text(size=12, family = "Oswald"),
+        plot.title = element_text(size = 15),
+        plot.subtitle = element_text(size = 12))
+
+p1
+
+```
+
+# Geographic Distribution
+
+In this work, we'll focus more on the geographical distribution of stops and searches in London.
+
+## Objects of search 
+
+```{r}
+# we could first look at distribution of different search objects at London for each year since dataset is too large 
+
+# we choose the start year(2017) and the most recent year(2020)
+# year 2017
+ss_2017 <- stop_search_offence_sf %>% 
+  filter(year == "2017")
+
+p2 <- ggplot() +
+  # draw polygons from London wards shapefile
+  geom_sf(data = london_wgs84, fill = "#3B454A", size = 0.125, colour = "#b2b2b277") +
+  # add points from stop-and-search shapefile
+  geom_sf(
+    data = ss_2017, aes(fill = object_of_search), 
+    color = "white", size = 1.5, alpha = 0.5, shape = 21,
+    show.legend = FALSE
+  ) + 
+  theme_minimal()+
+  coord_sf(datum = NA) + #remove coordinates
+  facet_wrap(~object_of_search) +
+  labs(title = "S&S in London 2017") +
+  hrbrthemes::theme_ft_rc(grid="", strip_text_face = "bold") +
+  theme(axis.text = element_blank()) +
+  theme(strip.text = element_text(color = "white"))+
+  NULL
+
+# year 2020
+ss_2020_drugs <- stop_search_offence_sf %>% 
+  filter(year == "2020") %>% 
+  filter(object_of_search == "Controlled drugs")
+  
+p3 <- ggplot() +
+  # draw polygons from London wards shapefile
+  geom_sf(data = london_wgs84, fill = "#3B454A", size = 0.125, colour = "#b2b2b277") +
+  # add points from stop-and-search shapefile
+  geom_sf(
+    data = ss_2020_drugs, aes(fill = object_of_search), 
+    color = "white", size = 1.5, alpha = 0.5, shape = 21,
+    show.legend = FALSE
+  ) + 
+  theme_minimal()+
+  coord_sf(datum = NA) + #remove coordinates
+  facet_wrap(~object_of_search) +
+  labs(title = "S&S in London 2020") +
+  hrbrthemes::theme_ft_rc(grid="", strip_text_face = "bold") +
+  theme(axis.text = element_blank()) +
+  theme(strip.text = element_text(color = "white"))+
+  NULL
+
+# We found that the only object of search conducted by the Met in 2017 is "Controlled drugs". Let's see how much the s&s of controlled drugs evolve into in 2020.
+p2 + p3
+
+# How about other objects? Let's have a view of all objects of search in 2020.
+
+ss_2020 <- stop_search_offence_sf %>% 
+  filter(year == "2020")
+  
+p4 <- ggplot() +
+  # draw polygons from London wards shapefile
+  geom_sf(data = london_wgs84, fill = "#3B454A", size = 0.125, colour = "#b2b2b277") +
+  # add points from stop-and-search shapefile
+  geom_sf(
+    data = ss_2020, aes(fill = object_of_search), 
+    color = "white", size = 1.5, alpha = 0.5, shape = 21,
+    show.legend = FALSE
+  ) + 
+  theme_minimal()+
+  coord_sf(datum = NA) + #remove coordinates
+  facet_wrap(~object_of_search) +
+  labs(title = "S&S in London 2020") +
+  hrbrthemes::theme_ft_rc(grid="", strip_text_face = "bold") +
+  theme(axis.text = element_blank()) +
+  theme(strip.text = element_text(color = "white"))+
+  NULL
+
+p4
+
+
+```
+From these two graphs, we could conclude that stop and search aiming at controlled drugs have largely extend from 2017 to 2020, covering alost every part of London.
+While stop and search for two other reasons, i.e. offensive weapons and stolen goods, they are not being conducted in outsuburbs in London. But who knows in the future?
+
+## Number of Stop & Search in Wards
+
+We look a little bit closer. Which wards are the places stop and search conducted most?
+
+```{r}
+# Count how many S&S happened inside each ward
+london_wgs84 <- london_wgs84 %>%
+  mutate(count = lengths(
+    st_contains(london_wgs84, 
+                stop_search_offence_sf))) 
+
+
+p6 <- ggplot(data = london_wgs84, aes(fill = count)) +
+   geom_sf() +
+   scale_fill_gradient(low = "#f0e5e5", high = "#6e0000")+
+  theme_minimal()+
+  theme(text = element_text(size=12, family = "Oswald"),
+        plot.title = element_text(hjust = 0.5))+
+  labs(title = " Mayfair and Stratford are the most suspect places in London",
+       subtitle = "Sum of S&S from 2017 to 2020", fill = "")
+
+p6
+```
+

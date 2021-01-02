@@ -1,190 +1,955 @@
 ---
-categories:
-- ""
-- ""
-date: "2020-9-15"
-description: How much have the main components of GDP for three countries changed in the past thirty years?
-draft: false
-image: blog07.png
-keywords: ""
-slug: blog7
-title: 1970 - 2019 GDP and Its breakdown 
+title: 'London House Price, Data Science Capstone Project'
+author: "Tianchi Wu"
+date: "`r Sys.Date()`"
+output: 
+    html_document:
+      number_sections: true
+      highlight: haddock
+      theme: spacelab
+      toc: yes
+      toc_depth: 2
+      toc_float:
+        collapsed: false
 ---
 
-# Context
-How much have the main components of GDP change in the past 30 years for developed countries and developing countries? And what's the true reason behind that.
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-```{r, setup, echo=FALSE}
-knitr::opts_chunk$set(
-  message = FALSE, 
-  warning = FALSE, 
-  tidy=FALSE,     # display code as typed
-  size="small")   # slightly smaller font for code
-options(digits = 3)
+<style>
+div.navy1 { background-color:#686868; border-radius: 5px; padding: 20px; border-style: groove; color: #ffffff;}
 
-# default figure size
-knitr::opts_chunk$set(
-  fig.width=6.75, 
-  fig.height=6.75,
-  fig.align = "center"
+</style>
+
+```{r, load_libraries, include = FALSE}
+
+if(!is.element("tidyverse", installed.packages()[,1]))
+{  install.packages("tidyverse")}
+
+if(!is.element("Hmisc", installed.packages()[,1]))
+{  install.packages("Hmisc")} #package for data summary using `describe`
+
+if(!is.element("ggplot2", installed.packages()[,1]))
+{  install.packages("ggplot2")} #package for plots
+if(!is.element("ggthemes", installed.packages()[,1]))
+{  install.packages("ggthemes")} #package to make fancier ggplots
+
+if(!is.element("janitor", installed.packages()[,1]))
+{ install.packages("janitor")} #package to visualize results of machine learning tools
+if(!is.element("rpart.plot", installed.packages()[,1]))
+{  install.packages("rpart.plot")} #package to visualize trees
+
+library(rpart.plot)
+library(caret)
+library(tidyverse) # the usual stuff: dplyr, readr, and other goodies
+library(lubridate)
+library(janitor) # clean_names()
+library(Hmisc)
+library("GGally")
+library(randomForest)
+library(caretEnsemble)
+```
+
+# Load data
+
+There are two sets of data, i) training data that has the actual prices ii) out of sample data that has the asking prices. Load and investigate both data sets. 
+
+```{r read-investigate}
+#read in the data
+london_house_prices_2019_training<-read.csv("training_data_assignment_with_prices.csv")
+london_house_prices_2019_out_of_sample<-read.csv("test_data_assignment.csv")
+
+#fix data types in both data sets
+#fix dates
+london_house_prices_2019_training <- london_house_prices_2019_training %>% mutate(date=as.Date(date))
+london_house_prices_2019_out_of_sample<-london_house_prices_2019_out_of_sample %>% mutate(date=as.Date(date))
+#change characters to factors
+london_house_prices_2019_training <- london_house_prices_2019_training %>% mutate_if(is.character,as.factor)
+london_house_prices_2019_out_of_sample<-london_house_prices_2019_out_of_sample %>% mutate_if(is.character,as.factor)
+
+str(london_house_prices_2019_training)
+str(london_house_prices_2019_out_of_sample)
+
+#make sure out of sample data and training data has the same levels for factors 
+a<-union(levels(london_house_prices_2019_training$postcode_short),levels(london_house_prices_2019_out_of_sample$postcode_short))
+london_house_prices_2019_out_of_sample$postcode_short <- factor(london_house_prices_2019_out_of_sample$postcode_short, levels = a)
+london_house_prices_2019_training$postcode_short <- factor(london_house_prices_2019_training$postcode_short, levels = a)
+
+
+#take a quick look at what's in the data
+str(london_house_prices_2019_training)
+skimr::skim(london_house_prices_2019_training)
+str(london_house_prices_2019_out_of_sample)
+```
+
+
+```{r split the price data to training and testing}
+#let's do the initial split
+set.seed(1234)
+library(rsample)
+train_test_split <- initial_split(london_house_prices_2019_training, prop = 0.75) #training set contains 75% of the data
+# Create the training dataset
+train_data <- training(train_test_split)
+test_data <- testing(train_test_split)
+
+
+```
+
+# Visualize data 
+
+Visualize and examine the data. 
+
+```{r visualize the data,warning=FALSE, message=FALSE}
+
+#build a boxplot of prices
+
+plot1 <- ggplot(data=train_data, aes(y = price)) + 
+  geom_boxplot() +
+  labs(title= "Lots of outliers as extreme high prices", y="price", x="") +
+  theme_bw()
+plot1
+
+#build a histogram of prices
+plot2 <- ggplot(data=train_data, aes(x = price)) + 
+  geom_histogram(bins = 50) +
+  labs(title= "Prices appear to be right skewed", subtitle="Distribution of house prices", x="price", y="") +
+  theme_bw()
+plot2
+
+#geo distribution of houses prices by counties
+df_county <- train_data %>% 
+  group_by(district) %>% 
+  summarise(avg_price = mean(price)) %>% 
+  arrange(desc(avg_price))
+
+plot3 <- df_county %>% 
+  ggplot() +
+  geom_hline(yintercept = mean(df_county$avg_price) , color = 'red' , size = 2 ) + 
+  geom_col(aes(x=reorder(district,avg_price) ,  y = avg_price ),alpha = 0.5) +
+  geom_text(y = mean(df_county$avg_price) , x = 'EALING', label ='Average Price') + 
+  labs(y = 'Mean Price' , x = 'County Name') + 
+  scale_y_continuous(labels = scales::dollar_format(prefix = "£"))+
+  coord_flip()+
+  theme_minimal()
+
+plot3
+
+#geo distribution of houses prices by London zone 
+df_zone <- train_data %>% 
+  group_by(london_zone) %>% 
+  summarise(avg_price = mean(price)) %>% 
+  arrange(desc(avg_price))
+
+plot4 <- df_zone %>% 
+  ggplot() +
+  geom_hline(yintercept = mean(df_zone$avg_price) , color = 'red' , size = 2 ) + 
+  geom_col(aes(x=reorder(london_zone,avg_price) ,  y = avg_price ),alpha = 0.5) +
+  geom_text(y = mean(df_zone$avg_price) , x = 'EALING', label ='Average Price') + 
+  labs(y = 'Mean Price' , x = 'London ZOne') + 
+  scale_y_continuous(labels = scales::dollar_format(prefix = "£"))+
+  coord_flip()+
+  theme_minimal()
+plot4
+
+```
+
+```{r, correlation table, warning=FALSE, message=FALSE}
+
+# produce a correlation table using GGally::ggcor()
+
+library("GGally")
+london_house_prices_2019_training %>% 
+  select(-ID) %>% #keep Y variable last
+  ggcorr(method = c("pairwise", "pearson"), layout.exp = 2,label_round=2, label = TRUE,label_size = 2,hjust = 1,nbreaks = 5,size = 2,angle = -20)
+
+```
+
+
+# Fit a linear regression model
+## Start with an intuitive and chosen-by-hand model
+
+```{r LR model, warning=FALSE, message=FALSE}
+set.seed(1234)
+#Define control variables
+control <- trainControl (
+    method="cv",
+    number=10,
+    verboseIter=TRUE) 
+
+#we are going to train the model and report the results using k-fold cross validation
+
+model1_lm<-train(
+    price ~ total_floor_area+
+      number_habitable_rooms+ 
+      #population+
+      co2_emissions_potential+
+      energy_consumption_potential+ 
+      distance_to_station+
+      water_company+
+      property_type+
+      whether_old_or_new+
+      freehold_or_leasehold+
+      latitude+ 
+      longitude+
+      num_tube_lines+
+      num_rail_lines+
+      num_light_rail_lines+
+      average_income+
+      london_zone+
+      type_of_closest_station+
+      altitude,
+    train_data,
+   method = "lm",
+    trControl = control)
+
+# summary of the results
+summary(model1_lm)
+
+# we can check variable importance as well
+importance <- varImp(model1_lm, scale=TRUE)
+plot(importance)
+
+
+## Predict the values in testing and out of sample data
+# We can predict the testing values
+
+
+predictions <- predict(model1_lm,test_data)
+
+lr_results<-data.frame( RMSE = RMSE(predictions, test_data$price), 
+                            Rsquare = R2(predictions, test_data$price),
+                        MAE = MAE(predictions, test_data$price))
+
+                            
+lr_results                         
+
+#We can predict prices for out of sample data the same way
+predictions_oos <- predict(model1_lm,london_house_prices_2019_out_of_sample)
+```
+
+## Use automatic feature selection
+
+```{r automatic feature selection, warning=FALSE, message=FALSE}
+
+set.seed(1234)
+control <- trainControl (
+    method="CV",
+    number=10,
+    verboseIter=FALSE)
+
+#Find the best model with 10 to 16 variables with backward induction
+model1_lm_automated <- train(price ~ total_floor_area+
+      number_habitable_rooms+ 
+      #population+
+      co2_emissions_potential+
+      energy_consumption_potential+ 
+      distance_to_station+
+      water_company+
+      property_type+
+      whether_old_or_new+
+      freehold_or_leasehold+
+      latitude+ 
+      longitude+
+      num_tube_lines+
+      num_rail_lines+
+      num_light_rail_lines+
+      average_income+
+      london_zone+
+      type_of_closest_station+
+      altitude,
+    train_data,
+    method = "leapBackward", #can chance method to "leapSeq", "leapForward"
+    tuneGrid = data.frame(nvmax = 10:20), #Will find the best model with 10:20 variables. 
+    trControl = control
 )
+
+#show the results of all models
+model1_lm_automated$results
+
+#simmarize the model of best fit and its coefficients
+summary(model1_lm_automated$finalModel)
+
+#a total number of 16 variables would be the best 
+
+coef(model1_lm_automated$finalModel,model1_lm_automated$bestTune$nvmax)
+```
+
+## Our final linear model 
+```{r final linear model, warning=FALSE, message=FALSE}
+model1_lm_final<-train(
+    price ~ total_floor_area+
+      number_habitable_rooms+ 
+      co2_emissions_potential+
+      energy_consumption_potential+ 
+      water_company+
+      property_type+
+      latitude+ 
+      longitude+
+      num_tube_lines+
+      num_light_rail_lines+
+      average_income+
+      london_zone+
+      type_of_closest_station,
+    train_data,
+   method = "lm",
+    trControl = control)
+
+# summary of the results
+summary(model1_lm_final)
+
+# we can check variable importance as well
+importance <- varImp(model1_lm_final, scale=TRUE)
+plot(importance)
+
+# I'll also use these variables for later algorithms 
+
+## Predict the values in testing and out of sample data
+# We can predict the testing values
+
+
+predictions <- predict(model1_lm_final,test_data)
+
+lr_results<-data.frame( RMSE = RMSE(predictions, test_data$price), 
+                            Rsquare = R2(predictions, test_data$price),
+                        MAE = MAE(predictions, test_data$price))
+
+                            
+lr_results                         
+
+#We can predict prices for out of sample data the same way
+predictions_oos <- predict(model1_lm_final,london_house_prices_2019_out_of_sample)
+```
+
+# Fit a tree model
+
+Linear Regression model's results didn't really meet our expectations, so we decide to try some other machine learning algorithms.
+
+## Basic tree model 
+```{r tree model, warning=FALSE, message=FALSE}
+set.seed(1234)
+model2_tree <- train(
+  price ~  total_floor_area+
+      number_habitable_rooms+ 
+      co2_emissions_potential+
+      energy_consumption_potential+ 
+      water_company+
+      property_type+
+      latitude+ 
+      longitude+
+      num_tube_lines+
+      num_light_rail_lines+
+      average_income+
+      london_zone+
+      type_of_closest_station,
+  train_data,
+  method = "rpart",
+  trControl = control,
+  tuneLength =20
+    )
+
+
+#print the model
+print(model2_tree)
+
+#plot the model
+plot(model2_tree)
+
+#You can view how the tree performs
+model2_tree$results
+
+#You can view the final tree
+
+rpart.plot(model2_tree$finalModel)
+
+
+#you can also visualize the variable importance
+importance <- varImp(model2_tree, scale=TRUE)
+plot(importance)
+
+#check the performance of tree model
+
+predictions <- predict(model2_tree,test_data)
+
+tree_results_1<-data.frame(  RMSE = RMSE(predictions, test_data$price), 
+                            Rsquare = R2(predictions, test_data$price),
+                            MAE = MAE(predictions, test_data$price))
+
+tree_results_1                         
+
+#We can predict prices for out of sample data the same way
+predictions_oos <- predict(model2_tree,london_house_prices_2019_out_of_sample)
+
+
+```
+
+## Hyperparameter tuning aiming at cp & number of observations in nodes
+
+```{r, tree tuning, warning=FALSE, message=FALSE}
+set.seed(1234)
+trctrl <- trainControl(method = "cv", 
+                       number = 10, 
+                       classProbs=FALSE, 
+                       summaryFunction=defaultSummary)
+
+#I choose cp values that seems to result in low error based on plot above
+Grid <- expand.grid(cp = seq(0.0000, 0.0020,0.0001))
+
+dtree_fit <- train(price ~ total_floor_area+
+      number_habitable_rooms+ 
+      co2_emissions_potential+
+      energy_consumption_potential+ 
+      water_company+
+      property_type+
+      latitude+ 
+      longitude+
+      num_tube_lines+
+      num_light_rail_lines+
+      average_income+
+      london_zone+
+      type_of_closest_station,
+                   data = train_data, 
+                   method = "rpart",
+                   metric="RMSE",
+                   trControl=trctrl,
+                  control = rpart.control(minsplit = 15),
+                   tuneGrid=Grid) 
+# Plot the best tree model found
+rpart.plot(dtree_fit$finalModel)
+
+# Print the search results of 'train' function
+plot(dtree_fit)
+
+print(dtree_fit)
+
+#check the performance of our tuned tree model
+
+predictions <- predict(dtree_fit,test_data)
+
+tree_results_2<-data.frame(  RMSE = RMSE(predictions, test_data$price), 
+                            Rsquare = R2(predictions, test_data$price),
+                             MAE = MAE(predictions, test_data$price))
+tree_results_2    
+```
+
+# Fit a KNN Model 
+
+```{r, KNN, warning=FALSE, message=FALSE}
+set.seed(1234)
+# fit a basic KNN model and using TuneLength = 10 to try 10 different Ks.
+knn_fit <- train(price~ total_floor_area+
+      number_habitable_rooms+ 
+      co2_emissions_potential+
+      energy_consumption_potential+ 
+      water_company+
+      property_type+
+      latitude+ 
+      longitude+
+      num_tube_lines+
+      num_light_rail_lines+
+      average_income+
+      london_zone+
+      type_of_closest_station,
+                 data = train_data,
+                 method = "knn",
+                 trControl = trainControl("cv", number = 10), #use cross validation with 10 data points
+                 tuneLength = 10, #number of parameter values train function will try
+                 preProcess = c("center", "scale"))  #center and scale the data in k-nn this is pretty important
+
+knn_fit
+
+plot(knn_fit)
+
+
+```
+
+## Tune the number of neighbors 
+
+```{r}
+set.seed(1234)
+#tune the number of neighbors
+suppressMessages(library(caret))
+modelLookup("knn")
+
+# set the grid to be 1:20
+knnGrid <-  expand.grid(k= seq(1,20 , by = 1)) 
+
+control <- trainControl(method="cv", 
+                        number=10, 
+                        classProbs=FALSE, 
+                        summaryFunction=defaultSummary)
+
+# By fixing the see I can re-generate the results when needed
+set.seed(1234)
+# Below I use 'train' function from caret library. 
+# 'preProcess': I use this option to center and scale the data
+# 'method' is knn
+# I already defined the 'trControl' and 'tuneGrid' options above
+fit_KNN <- train(price~total_floor_area+
+      number_habitable_rooms+ 
+      co2_emissions_potential+
+      energy_consumption_potential+ 
+      water_company+
+      property_type+
+      latitude+ 
+      longitude+
+      num_tube_lines+
+      num_light_rail_lines+
+      average_income+
+      london_zone+
+      type_of_closest_station,
+                 data = train_data, 
+                 preProcess = c("center", "scale"), 
+                 method="knn", 
+                 metric="RMSE", 
+                 trControl=control,
+                 tuneGrid = knnGrid)
+# display results
+print(fit_KNN)
+plot(fit_KNN)
+
+
+# find out predictions of this model
+
+predictions <- predict(fit_KNN,test_data)
+
+knn_results_1<-data.frame(  RMSE = RMSE(predictions, test_data$price), 
+                            Rsquare = R2(predictions, test_data$price),
+                             MAE = MAE(predictions, test_data$price))
+knn_results_1 
+
+
+```
+
+# Random Forest Model
+Use more complexe algorithm as ensemble methods.
+
+```{r, random forest, warning=FALSE, message=FALSE}
+set.seed(1234)
+rforest_train <- randomForest(price~total_floor_area+
+      number_habitable_rooms+ 
+      co2_emissions_potential+
+      energy_consumption_potential+ 
+      water_company+
+      property_type+
+      latitude+ 
+      longitude+
+      num_tube_lines+
+      num_light_rail_lines+
+      average_income+
+      london_zone+
+      type_of_closest_station,
+                 data = train_data,  
+                                    ntree = 500,mtry = 3, maxnodes=50,nodesize=2)
+
+
+# Print the model output                             
+print(rforest_train)
+
+# Find out predictions of this model
+predictions <- predict(rforest_train,test_data)
+
+rforest_results_1<-data.frame(  RMSE = RMSE(predictions, test_data$price), 
+                            Rsquare = R2(predictions, test_data$price),
+                             MAE = MAE(predictions, test_data$price))
+rforest_results_1 
+
+```
+
+## Random search to get a good combination of parameters
+```{r, rf tuning, warning=FALSE, message=FALSE}
+# Hypertune the number of features the algorithm chooses in each step (variable mtry) using the caret package and ranger method
+
+#Check what parameters are tunable
+modelLookup("ranger")
+
+set.seed(1234)
+#use a random search
+train_control <- trainControl(method="cv", number=2, classProbs=FALSE, 
+                        summaryFunction=defaultSummary,verboseIter = TRUE,search="random")
+
+# Fit random forest model with random search
+rforest_random <- train(
+  price~total_floor_area+
+      number_habitable_rooms+ 
+      co2_emissions_potential+
+      energy_consumption_potential+ 
+      water_company+
+      property_type+
+      latitude+ 
+      longitude+
+      num_tube_lines+
+      num_light_rail_lines+
+      average_income+
+      london_zone+
+      type_of_closest_station,
+                 data = train_data, 
+  method = "ranger",
+  metric="RMSE",
+  trControl = train_control,
+  tuneLength=10,
+  importance = 'permutation'
+)
+
+#show the model
+print(rforest_random)
+names(rforest_random$modelInfo)
+
+# Let's check the variable importance
+rfImp <- varImp(rforest_random, scale = FALSE)
+plot(rfImp)
+
+#show the predictions
+predictions <- predict(rforest_random,test_data)
+
+rforest_results_2<-data.frame(  RMSE = RMSE(predictions, test_data$price), 
+                            Rsquare = R2(predictions, test_data$price),
+                             MAE = MAE(predictions, test_data$price))
+rforest_results_2 
+
+
+#so our best random forest model, mtry = 8, splitrule = variance, and min.node.size = 16
+```
+
+## Tune mtry 
+```{r}
+# Define the tuning grid: tuneGrid. change the grid based on our findings above
+
+set.seed(1234)
+train_control <- trainControl(method="cv", number=2, classProbs=FALSE, 
+                        summaryFunction=defaultSummary,verboseIter = TRUE)
+
+gridRF <- data.frame(
+  .mtry = c(1:19),
+  .splitrule = "variance", #"variance" splitrule is better than "extratrees"
+  .min.node.size = 16
+)
+# Fit random forest: model
+rf_final <- train(
+ price~total_floor_area+
+      number_habitable_rooms+ 
+      co2_emissions_potential+
+      energy_consumption_potential+ 
+      water_company+
+      property_type+
+      latitude+ 
+      longitude+
+      num_tube_lines+
+      num_light_rail_lines+
+      average_income+
+      london_zone+
+      type_of_closest_station,
+                 data = train_data, 
+  method = "ranger",
+   metric="RMSE",
+  trControl = train_control,
+  tuneGrid = gridRF,
+  importance = 'permutation',
+  num.trees = 500
+)
+
+
+#print the model
+print(rf_final)
+
+# Let's check the variable importance
+rfImp <- varImp(rf_final, scale = FALSE)
+plot(rfImp)
+
+
+#show the predictions
+predictions <- predict(rf_final,test_data)
+
+rforest_results_3<-data.frame(  RMSE = RMSE(predictions, test_data$price), 
+                            Rsquare = R2(predictions, test_data$price),
+                             MAE = MAE(predictions, test_data$price))
+rforest_results_3 
 ```
 
 
-```{r load-libraries}
-library(tidyverse)  # Load ggplot2, dplyr, and all the other tidyverse packages
-library(mosaic)
-library(ggthemes)
-library(GGally)
-library(readxl)
-library(here)
-library(skimr)
-library(janitor)
-library(broom)
-library(tidyquant)
-library(infer)
-library(openintro)
+# Fit a GBM Model and tune at the same time 
+
+```{r, GBM, warning=FALSE, message=FALSE}
+
+#train a GBM Model
+set.seed(1234)
+control <- trainControl(
+    method="cv",
+    number=5,
+    summaryFunction=defaultSummary,
+    verboseIter = TRUE
+  )
+
+#we set the grid size to tune some parameters 
+grid<-expand.grid(interaction.depth = c(6),n.trees = c(100, 200, 300),shrinkage =c(0.1), n.minobsinnode = c(3,5,10))
+
+gbm_model <-  train(price~total_floor_area+
+      number_habitable_rooms+ 
+      co2_emissions_potential+
+      energy_consumption_potential+ 
+      water_company+
+      property_type+
+      latitude+ 
+      longitude+
+      num_tube_lines+
+      num_light_rail_lines+
+      average_income+
+      london_zone+
+      type_of_closest_station,
+      data = train_data, 
+    method = "gbm", 
+    trControl = control,
+    metric = "RMSE" ,
+    preProcess = c("center", "scale"),
+    tuneGrid=grid,
+    verbose=FALSE
+                 )
+
+#print the model
+print(gbm_model)
+summary(gbm_model)
+
+#show the predictions 
+predictions <- predict(gbm_model,test_data)
+
+gbm_results_1<-data.frame(  RMSE = RMSE(predictions, test_data$price), 
+                            Rsquare = R2(predictions, test_data$price),
+                             MAE = MAE(predictions, test_data$price))
+gbm_results_1 
+
+```
+
+# Stacking
+
+## Train five final model using same control
+```{r,stacking, warning=FALSE,  message=FALSE }
+
+#number of folds in cross validation
+CVfolds <- 5
+
+#Define folds
+set.seed(1234)
+#create five folds with no repeats
+indexPreds <- createMultiFolds(train_data$price, CVfolds,times = 1) 
+#Define traincontrol using folds
+ctrl <- trainControl(method = "cv",  number = CVfolds, returnResamp = "final", savePredictions = "final", index = indexPreds,sampling = NULL)
+
+#training models
+
+#train linear regression
+model1_lm<-train(
+    price ~ total_floor_area+
+      number_habitable_rooms+ 
+      co2_emissions_potential+
+      energy_consumption_potential+ 
+      water_company+
+      property_type+
+      latitude+ 
+      longitude+
+      num_tube_lines+
+      num_light_rail_lines+
+      average_income+
+      london_zone+
+      type_of_closest_station,
+       train_data,
+   method = "lm",
+    trControl = ctrl
+   )
+
+#train a tree (with different independent variables) use same trcontrol
+
+Grid <- expand.grid(cp = 0.0001)
+model2_tree <- train(
+  price ~ total_floor_area+
+      number_habitable_rooms+ 
+      co2_emissions_potential+
+      energy_consumption_potential+ 
+      water_company+
+      property_type+
+      latitude+ 
+      longitude+
+      num_tube_lines+
+      num_light_rail_lines+
+      average_income+
+      london_zone+
+      type_of_closest_station,
+                   data = train_data, 
+                   method = "rpart",
+                   metric="RMSE",
+                   trControl=ctrl,
+                  control = rpart.control(minsplit = 15),
+                   tuneGrid=Grid)
+
+
+#train knn
+knnGrid <-  expand.grid(k= 7) 
+model3_knn <- train(price~total_floor_area+
+      number_habitable_rooms+ 
+      co2_emissions_potential+
+      energy_consumption_potential+ 
+      water_company+
+      property_type+
+      latitude+ 
+      longitude+
+      num_tube_lines+
+      num_light_rail_lines+
+      average_income+
+      london_zone+
+      type_of_closest_station,
+                 data = train_data, 
+                 preProcess = c("center", "scale"), 
+                 method="knn", 
+                 metric="RMSE", 
+                 trControl=ctrl,
+                 tuneGrid = knnGrid)
+
+#train random forest model
+gridRF <- data.frame(
+  .mtry = c(15),
+  .splitrule = "variance", #"variance" splitrule is better than "extratrees"
+  .min.node.size = 3
+)
+
+model4_rf <- train(
+ price~total_floor_area+
+      number_habitable_rooms+ 
+      co2_emissions_potential+
+      energy_consumption_potential+ 
+      water_company+
+      property_type+
+      latitude+ 
+      longitude+
+      num_tube_lines+
+      num_light_rail_lines+
+      average_income+
+      london_zone+
+      type_of_closest_station,
+                 data = train_data, 
+  method = "ranger",
+   metric="RMSE",
+  trControl = ctrl,
+  tuneGrid = gridRF,
+  importance = 'permutation',
+  num.trees = 500
+)
+
+
+#train GBM model
+grid<-expand.grid(interaction.depth = 6,n.trees = 300,shrinkage =0.01, n.minobsinnode = 3)
+
+model5_gbm <-  train(price~total_floor_area+
+      number_habitable_rooms+ 
+      co2_emissions_potential+
+      energy_consumption_potential+ 
+      water_company+
+      property_type+
+      latitude+ 
+      longitude+
+      num_tube_lines+
+      num_light_rail_lines+
+      average_income+
+      london_zone+
+      type_of_closest_station,
+      data = train_data, 
+    method = "gbm", 
+    trControl = ctrl,
+    metric = "RMSE" ,
+    preProcess = c("center", "scale"),
+    tuneGrid=grid,
+    verbose=FALSE
+                 )
+
 ```
 
 
-Firstly we used United Nation's database to load our data.
+## Combine a meta model 
 
-
-```{r read_GDP_data}
-
-UN_GDP_data  <-  read_excel(here::here("data", "Download-GDPconstant-USD-countries.xls"), # Excel filename
-                sheet="Download-GDPconstant-USD-countr", # Sheet name
-                skip=2) # Number of rows to skip
+```{r, stacking, combine results}
+#combine the results 
+#make sure to use the method names from above
+multimodel <- list(lm = model1_lm, rpart = model2_tree, knn = model3_knn, rForest = model4_rf, gbm = model5_gbm )
+class(multimodel) <- "caretList"
 
 ```
 
-Then we tidy the data to pivot longer and also save lists for filter later.
-
-```{r reshape_GDP_data}
-
-#save lists for filter later 
-components <- c("Gross capital formation", "Exports of goods and services", 	
-"General government final consumption expenditure", "Household consumption expenditure (including Non-profit institutions serving households)", "Imports of goods and services","Gross Domestic Product (GDP)")
-
-#clean data
-tidy_GDP_data  <-  UN_GDP_data %>% 
-  pivot_longer(cols = (4:51), names_to = "Year", values_to = "Sum") %>% 
-  mutate("Sum" = Sum/1e9) %>% 
-  mutate(Year = as.numeric(Year))
-
-data_renamed<- tidy_GDP_data%>%
- filter(IndicatorName %in% components) %>%   
-pivot_wider(names_from = IndicatorName,values_from = Sum)
+## Show results of our meta model 1
+```{r, stacking, visualize results}
+#we can visualize the differences in performance of each algorithm for each fold 
+modelCor(resamples(multimodel))
+dotplot(resamples(multimodel), metric = "Rsquared") #you can set metric=MAE, RMSE, or Rsquared 
+dotplot(resamples(multimodel), metric = "RMSE")
+  
+```
+```{r}
+model_list <- caretStack(multimodel,trControl=ctrl,method="lm",
+    metric = "RMSE")
+  summary(model_list)
   
 
-names(data_renamed)[4:9] <- c("HCE","GGFCE","GCF","EGS","IGS","GDP") 
-
-
-glimpse(data_renamed)
-
-
-# Let us compare GDP components for these 3 countries
-country_list <- c("United States","India", "Germany")
+  
+predictions <- predict(model_list,test_data)
+stacking_results_1<-data.frame(  RMSE = RMSE(predictions, test_data$price), 
+                            Rsquare = R2(predictions, test_data$price),
+                             MAE = MAE(predictions, test_data$price))
+stacking_results_1 
 ```
 
-Firstly we want see how does each component of GDP grows over time.
+## Combine only the best three performed methods 
 
+```{r, three stacking models}
 
-```{r, produce_the_plot, out.width="100%"}
+#only use three best performed methods 
+multi_3_model <- list(lm = model1_lm, knn = model3_knn, rForest = model4_rf )
+class(multi_3_model) <- "caretList"
 
-components <- c("Gross capital formation", "Exports of goods and services", 	
-"General government final consumption expenditure", "Household consumption expenditure (including Non-profit institutions serving households)", "Imports of goods and services")
+model_list_2 <- caretStack(multi_3_model,trControl=ctrl,method="lm",
+    metric = "RMSE")
+  summary(model_list_2)
+  
 
-components2 <- c("Gross capital formation", "Exports", 	
-"Government expenditure", "Household expenditure", "Imports")
+  
+predictions <- predict(model_list_2,test_data)
+stacking_results_2<-data.frame(  RMSE = RMSE(predictions, test_data$price), 
+                            Rsquare = R2(predictions, test_data$price),
+                             MAE = MAE(predictions, test_data$price))
+stacking_results_2
 
-three_GDP <- tidy_GDP_data %>% 
-  filter(Country %in% country_list) %>%
-  filter(IndicatorName %in% components) 
-
-
-gdp1 <- ggplot(data = three_GDP, aes(x = Year, y = Sum, group = IndicatorName, color = IndicatorName)) +
-  geom_line(size = 0.8)+
-  facet_wrap(~Country)+
-  scale_color_manual( values=c("#F8766D", "#A3A500", "#2FCB95", "#00B0F6", "#E76BF3"),
-                      name="Components of GDP",
-                       labels= components2)+
-  labs(x = "", y = "Billion US$", title = "GDP components over time", subtitle = "In constant 2010 USD")+
-  theme(legend.position = "right")+
-  theme_bw()+
-  coord_equal(ratio = 0.008)
-
-gdp1
-```
-Secondly, 
-recall that GDP is the sum of Household Expenditure (Consumption *C*), Gross Capital Formation (business investment *I*), Government Expenditure (G) and Net Exports (exports - imports). We'll calculate GDP using the components given above.
-
-```{r, calculate_gdp,out.width="100%"}
-
-components3 <- c("Gross capital formation", "Exports of goods and services", 	
-"General government final consumption expenditure", "Household consumption expenditure (including Non-profit institutions serving households)", "Imports of goods and services", "Gross Domestic Product (GDP)")
-
-three_GDP <- data_renamed %>% 
-  filter(Country %in% country_list)
-
-three_GDP_1<- three_GDP %>% 
-  mutate("Net_export" = EGS - IGS ) 
-
-three_GDP_2 <- three_GDP_1 %>% 
-  mutate("GDP_calculated" = HCE + GGFCE + GCF + Net_export)
-three_GDP_3 <- three_GDP_2 %>% 
-  mutate("GDP_difference_per" = (GDP - GDP_calculated) / GDP)
-
-gdp_difference <- ggplot(data = three_GDP_3, aes(x = Year, y = GDP_difference_per)) + 
-  geom_line(color = "#00B0F6", size = 0.8)+
-  facet_wrap(~Country)+
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1),limits = c(-0.08,0.07))+
-  theme_bw()+
-  labs(y = "", title = "Difference between GDP and calculated GDP")
-
+#it seems that its performance isn't as good as our first meta model, so our final model would be model_list 
 
 ```
 
+# Use our final best model to select 200 houses 
+```{r,make predictions and write CSV, warning=FALSE,  message=FALSE }
 
-We want to produce another plot to see changes of proportion of each component of GDP.
+numchoose=200
+
+oos<-london_house_prices_2019_out_of_sample
 
 
-```{r gdp_breakdown, out.width="100%"}
+#predict the value of houses
+oos$predict <- predict(model_list,oos)
+#Choose the ones you want to invest here
+#Make sure you choose exactly 200 of them
 
-components4 <- c("Government Expenditure", "Gross capital formation", "Household Expenditure", "Net Exports")
-three_GDP_4 <- three_GDP_3 %>% 
-  mutate("GGFCE_per" = (GGFCE) / GDP) %>% 
-  mutate("GCF_per" = (GCF) / GDP) %>% 
-  mutate("HCE_per" = (HCE) / GDP) %>% 
-  mutate("Net_export_per" = (Net_export) / GDP) %>% 
-  select(Country, Year, GGFCE_per,GCF_per,HCE_per,Net_export_per)
 
-three_GDP_5 <- three_GDP_4 %>% 
-  pivot_longer(cols = (3:6), names_to = "Components", values_to = "Proportion" ) 
+#Choose the ones you want to invest here
+#Let's find the profit margin given our predicted price and asking price
+oos<- oos%>%
+  mutate(profitMargin=(predict-asking_price)/asking_price)%>%arrange(-profitMargin)
+#Make sure you choose exactly 200 of them
+oos$buy=0
+oos[1:numchoose,]$buy=1
 
-gdp2 <- ggplot(data = three_GDP_5, aes(x = Year, y = Proportion, group = Components, color = Components)) +
-  geom_line(size = 1)+
-  facet_wrap(~Country)+
-  scale_color_manual( values=c("#F8766D", "#A3A500", "#2FCB95", "#E76BF3"),
-                      name="",
-                       labels= components4)+
-  labs(x = "", y = "proportion", title = "GDP and its breakdown at constant 2010 prices in US Dollars", caption = "Source: United Nations, https://unstats.un.org/unsd/snaama/Downloads")+
-  theme(legend.position = "right")+
-  theme_bw()+
-  coord_equal(ratio = 80)
+#let's find the actual profit
 
-gdp2
+oos<-oos%>%mutate(profit=(predict-asking_price)/asking_price)%>%mutate(actualProfit=buy*profit)
+
+#if we invest in everything
+mean(oos$profit)
+
+#just invest in those we chose
+sum(oos$actualProfit)/numchoose
+
+#output my choices.
+write.csv(oos,"wu_tianchi.csv")
 ```
-
-# Conclusion
-
-- Emerging countries like India is going through an increase in gross capital formation since lots of infrastructure and real estates have been invested, as well as a decrease in household expenditure because India takes lower priority of household expenditure in boosting economy.
-
-- Developped countries have a relatively stable trend in those four components, except countries that have solid industrial foundation like Germany is going through an slight increase in net exports. 
-
-
-
-
-
-
-

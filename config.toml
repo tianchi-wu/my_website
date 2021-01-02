@@ -20,7 +20,7 @@ disqusShortname = ""
 
   # Provide your metadata here.
   name = "Tianchi Wu"
-  description = "Your description"
+  description = "LBS2021 | RUC2020  "
 
   # Link custom assets relative to /static
   custom_css = []
@@ -82,8 +82,8 @@ disqusShortname = ""
   [params.banner]
     # To change the background image on the homepage banner, replace 'banner.jpg' in
     # the 'static/img' folder.
-    title = "Hi, my name is Tianchi"
-    subtitle = "A PORTFOLIO SITE FOR TIANCHI'S STATISTICS WORK."
+    title = "Hi, this is Tianchi"
+    subtitle = "A PORTFOLIO SITE FOR TIANCHI'S DATA SCIENCE WORK."
     buttonText = "Get Started"
 
 
@@ -93,26 +93,26 @@ disqusShortname = ""
     # Display your showcases here.
     
     [[params.tiles.showcase]]
-      title = "2016 CA Contributors Plots"
-      subtitle = "have a view of how much candidates have raised in CA cities"
+      title = "London Airbnb Pricing Prediction"
+      subtitle = "predict how much a two people and four nights airbnb will cost in London"
       image = "blog05.png"
       url = "blogs/blog5"
 
     [[params.tiles.showcase]]
-      title = "2015 - 2020 TfL Bike Rentals"
-      subtitle = "how does 2020's weekly change look like compared to other years"
+      title = "LendingClub Debt Default Prediction"
+      subtitle = "use logistic regression to predict which loans of LendingClub will default"
       image = "blog06.jpg"
       url = "blogs/blog6"
 
     [[params.tiles.showcase]]
-      title = "1970 - 2019 GDP and Its Breakdown"
-      subtitle = "Any dynamic difference between Germany, India and United States?"
-      image = "blog07.jpg"
+      title = "London House Prices Project"
+      subtitle = "predict two hundred most valuable real estates for investment"
+      image = "blog07.png"
       url = "blogs/blog7"
 
     [[params.tiles.showcase]]
-      title = "IMBD Ratings: Difference between Directors"
-      subtitle = "Is there a rating difference between Steven Spielberg and Tim Burton?"
+      title = "London MET Stop and Search Visualization"
+      subtitle = "make data visualization regarding London Metropolitan Police stop and search"
       image = "blog08.png"
       url = "blogs/blog8"
 
@@ -190,14 +190,14 @@ disqusShortname = ""
 
     # Uses font awesome icons
     [[params.footer.social]]
-      icon = "fa-twitter"
-      url= "https://www.twitter.com"
-      label = "Twitter"
+#      icon = "fa-twitter"
+#     url= "https://www.twitter.com"
+#     label = "Twitter"
 
     [[params.footer.social]]
-      icon = "fa-facebook"
-      url= "https://www.facebook.com"
-      label = "Facebook"
+#      icon = "fa-facebook"
+#     url= "https://www.facebook.com"
+#     label = "Facebook"
 
     [[params.footer.social]]
 #      icon = "fa-instagram"
